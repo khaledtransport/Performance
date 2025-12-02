@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+[[redirects]]
+  from = "/*"
+  to = "/Performance/:splat"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/Performance/*"
+  to = "/Performance/:splat"
+  status = 200
