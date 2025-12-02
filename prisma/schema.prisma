@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model University {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  routes    Route[]
+
+  @@map("universities")
+}
+
+model Bus {
+  id          String                @id @default(uuid())
+  busNumber   String                @unique @map("bus_number")
+  capacity    Int                   @default(50)
+  isActive    Boolean               @default(true) @map("is_active")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+  districts   BusDistrict[]
+  assignments BusDriverAssignment[]
+  routes      Route[]
+  trips       Trip[]
+
+  @@map("buses")
+}
+
+model Driver {
+  id            String                @id @default(uuid())
+  name          String
+  phone         String?
+  licenseNumber String?               @map("license_number")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+  assignments   BusDriverAssignment[]
+  routes        Route[]
+
+  @@map("drivers")
+}
+
+model District {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  description String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  buses       BusDistrict[]
+  routes      Route[]
+
+  @@map("districts")
+}
+
+model BusDistrict {
+  id         String   @id @default(uuid())
+  busId      String   @map("bus_id")
+  districtId String   @map("district_id")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  bus        Bus      @relation(fields: [busId], references: [id], onDelete: Cascade)
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@unique([busId, districtId])
+  @@map("bus_districts")
+}
+
+model BusDriverAssignment {
+  id           String    @id @default(uuid())
+  busId        String    @map("bus_id")
+  driverId     String    @map("driver_id")
+  assignedAt   DateTime  @default(now()) @map("assigned_at")
+  unassignedAt DateTime? @map("unassigned_at")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  bus          Bus       @relation(fields: [busId], references: [id], onDelete: Cascade)
+  driver       Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("bus_driver_assignments")
+}
+
+model Trip {
+  id                  String        @id @default(uuid())
+  busId               String        @map("bus_id")
+  tripDate            DateTime      @map("trip_date") @db.Date
+  direction           TripDirection
+  scheduledTime       DateTime      @map("scheduled_time") @db.Time(6)
+  actualDepartureTime DateTime?     @map("actual_departure_time")
+  actualArrivalTime   DateTime?     @map("actual_arrival_time")
+  status              TripStatus    @default(PENDING)
+  passengersCount     Int           @default(0) @map("passengers_count")
+  notes               String?
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  routeId             String?       @map("route_id")
+  bus                 Bus           @relation(fields: [busId], references: [id], onDelete: Cascade)
+  route               Route?        @relation(fields: [routeId], references: [id])
+
+  @@index([busId, tripDate])
+  @@index([status])
+  @@map("trips")
+}
+
+model Representative {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  routes    Route[]
+
+  @@map("representatives")
+}
+
+model Route {
+  id               String          @id @default(uuid())
+  universityId     String          @map("university_id")
+  driverId         String          @map("driver_id")
+  busId            String          @map("bus_id")
+  districtId       String?         @map("district_id")
+  representativeId String?         @map("representative_id")
+  totalGoTrips     Int             @default(0) @map("total_go_trips")
+  totalReturnTrips Int             @default(0) @map("total_return_trips")
+  isActive         Boolean         @default(true) @map("is_active")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  routeTrips       RouteTrip[]
+  bus              Bus             @relation(fields: [busId], references: [id], onDelete: Cascade)
+  district         District?       @relation(fields: [districtId], references: [id])
+  driver           Driver          @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  representative   Representative? @relation(fields: [representativeId], references: [id])
+  university       University      @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  trips            Trip[]
+
+  @@map("routes")
+}
+
+model RouteTrip {
+  id            String        @id @default(uuid())
+  routeId       String        @map("route_id")
+  tripDate      DateTime      @map("trip_date") @db.Date
+  direction     TripDirection
+  tripTime      String        @map("trip_time")
+  studentsCount Int           @default(0) @map("students_count")
+  status        TripStatus    @default(PENDING)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  route         Route         @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@index([routeId, tripDate])
+  @@map("route_trips")
+}
+
+enum TripStatus {
+  PENDING
+  DEPARTED
+  ARRIVED
+  DELAYED
+  CANCELLED
+}
+
+enum TripDirection {
+  GO
+  RETURN
+}

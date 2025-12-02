@@ -1,0 +1,22 @@
+{
+    "mcpServers": {
+        "my-custom-server": {
+            "command": "/Users/mac/.local/bin/uv",
+            "args": [
+                "--directory",
+                "/Volumes/barnies/700 University/my-mcp-server",
+                "run",
+                "mcp",
+                "run",
+                "server.py"
+            ]
+        },
+        "supabase": {
+            "url": "https://mcp.supabase.com/mcp",
+            "projectId": "nysajqypudgkwxgxqvlk",
+            "headers": {
+                "Authorization": "Bearer sb_secret_7T1wFNGYzXBe3Mwol92e2Q_7PqBXby4"
+            }
+        }
+    }
+}
