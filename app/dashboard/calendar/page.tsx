@@ -40,6 +40,14 @@ function endOfWeek(date: Date) {
   return e;
 }
 
+// دالة لتحويل التاريخ المحلي إلى نص بصيغة YYYY-MM-DD
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const statusConfig = {
   PENDING: {
     label: "قيد الانتظار",
@@ -113,7 +121,7 @@ export default function CalendarDashboard() {
   // اختيار تلقائي لأول يوم يحتوي على رحلات
   useEffect(() => {
     if (!hasAutoSelected && dailySummary.length > 0 && !isLoading) {
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = getLocalDateString(new Date());
       const todayHasTrips = dailySummary.find((d: any) => d.date === todayStr);
 
       if (todayHasTrips) {
@@ -135,7 +143,7 @@ export default function CalendarDashboard() {
     }
   }, [dailySummary, hasAutoSelected, isLoading]);
 
-  const selectedDay = activeDate.toISOString().split("T")[0];
+  const selectedDay = getLocalDateString(activeDate);
   const selectedDayData = dailySummary.find((d: any) => d.date === selectedDay);
   const todayTrips = selectedDayData?.trips || [];
 
@@ -314,7 +322,7 @@ export default function CalendarDashboard() {
                     return days[date.getDay()];
                   }}
                   tileClassName={({ date }) => {
-                    const dateStr = date.toISOString().split("T")[0];
+                    const dateStr = getLocalDateString(date);
                     return dayWithTrips.includes(dateStr)
                       ? "font-bold relative after:content-[''] after:absolute after:bottom-2 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-blue-500 after:rounded-full"
                       : "";
