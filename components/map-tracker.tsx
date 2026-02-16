@@ -394,9 +394,13 @@ export default function MapTracker({
       const existing = markersRef.current.get(loc.busId);
       const prev = prevLocationsRef.current.get(loc.busId);
       
-      // حساب الاتجاه: أولاً من GPS الجوال، وإذا لم يتوفر نحسبه من النقاط المتتالية
-      let heading = loc.heading;
-      if ((heading == null || heading === 0) && prev) {
+      // حساب الاتجاه: أولاً من GPS الجوال (0° قيمة صحيحة = شمال)
+      // وإذا لم يتوفر/غير صالح نحسبه من النقاط المتتالية
+      let heading =
+        typeof loc.heading === 'number' && Number.isFinite(loc.heading)
+          ? ((loc.heading % 360) + 360) % 360
+          : null;
+      if (heading == null && prev) {
         const dist = Math.abs(loc.latitude - prev.lat) + Math.abs(loc.longitude - prev.lng);
         if (dist > 0.0001) { // بعد كافي لحساب الاتجاه (حوالي 10 متر)
           heading = calcBearing(prev.lat, prev.lng, loc.latitude, loc.longitude);
