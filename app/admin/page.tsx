@@ -18,6 +18,7 @@ import {
   Upload,
   ArrowLeft,
   MapPin,
+  Megaphone,
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -71,6 +72,13 @@ export default function AdminPage() {
       href: "/admin/districts",
       color: "red",
     },
+    {
+      title: "مركز الإشعارات",
+      description: "إرسال إشعارات وتنبيهات للسائقين",
+      icon: Megaphone,
+      href: "/admin/notifications",
+      color: "cyan",
+    },
   ];
 
   const colorClasses: any = {
@@ -81,6 +89,7 @@ export default function AdminPage() {
     pink: "bg-pink-50 text-pink-600 border-pink-200",
     indigo: "bg-indigo-50 text-indigo-600 border-indigo-200",
     red: "bg-red-50 text-red-600 border-red-200",
+    cyan: "bg-cyan-50 text-cyan-600 border-cyan-200",
   };
 
   return (

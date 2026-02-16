@@ -24,6 +24,7 @@ import {
   LogOut,
   User,
   Link2,
+  Megaphone,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -123,6 +124,11 @@ const adminItems: NavigationItem[] = [
     label: "الأحياء",
     href: "/admin/districts",
     icon: <MapPin className="w-4 h-4" />,
+  },
+  {
+    label: "الإشعارات",
+    href: "/admin/notifications",
+    icon: <Megaphone className="w-4 h-4" />,
   },
 ];
 

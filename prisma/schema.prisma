@@ -209,8 +209,11 @@ model Notification {
   title     String
   message   String
   type      NotificationType   @default(INFO)
+  priority  NotificationPriority @default(NORMAL)
+  soundType String?            @map("sound_type")
   isRead    Boolean            @default(false) @map("is_read")
   link      String?
+  senderId  String?            @map("sender_id")
   createdAt DateTime           @default(now()) @map("created_at")
   user      User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -226,6 +229,15 @@ enum NotificationType {
   ERROR
   TRIP_UPDATE
   SYSTEM
+  URGENT
+  SCHEDULE
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
 }
 
 // ============ تتبع GPS ============

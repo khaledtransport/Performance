@@ -48,11 +48,12 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: إنشاء إشعار جديد
+// POST: إنشاء إشعار جديد (يدعم الإرسال الجماعي للسائقين)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, message, type, userId, link } = body;
+    const { title, message, type, userId, link, priority, soundType, target } = body;
+    const senderId = request.headers.get("x-user-id");
 
     if (!title || !message) {
       return NextResponse.json(
@@ -61,12 +62,63 @@ export async function POST(request: Request) {
       );
     }
 
+    // إرسال جماعي لكل السائقين
+    if (target === "ALL_DRIVERS") {
+      const drivers = await prisma.user.findMany({
+        where: { role: "DRIVER", isActive: true },
+        select: { id: true },
+      });
+
+      const notifications = await prisma.notification.createMany({
+        data: drivers.map((driver) => ({
+          title,
+          message,
+          type: type || "INFO",
+          priority: priority || "NORMAL",
+          soundType: soundType || null,
+          userId: driver.id,
+          senderId: senderId || null,
+          link: link || null,
+        })),
+      });
+
+      return NextResponse.json(
+        { success: true, count: notifications.count, message: `تم إرسال الإشعار إلى ${notifications.count} سائق` },
+        { status: 201 }
+      );
+    }
+
+    // إرسال لسائقين محددين
+    if (target === "SELECTED_DRIVERS" && Array.isArray(body.driverIds) && body.driverIds.length > 0) {
+      const notifications = await prisma.notification.createMany({
+        data: body.driverIds.map((dId: string) => ({
+          title,
+          message,
+          type: type || "INFO",
+          priority: priority || "NORMAL",
+          soundType: soundType || null,
+          userId: dId,
+          senderId: senderId || null,
+          link: link || null,
+        })),
+      });
+
+      return NextResponse.json(
+        { success: true, count: notifications.count, message: `تم إرسال الإشعار إلى ${notifications.count} سائق` },
+        { status: 201 }
+      );
+    }
+
+    // إشعار فردي أو عام
     const notification = await prisma.notification.create({
       data: {
         title,
         message,
         type: type || "INFO",
+        priority: priority || "NORMAL",
+        soundType: soundType || null,
         userId: userId || null,
+        senderId: senderId || null,
         link: link || null,
       },
     });
