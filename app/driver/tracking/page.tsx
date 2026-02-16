@@ -345,12 +345,12 @@ export default function DriverTrackingPage() {
       description: "يتم إرسال موقعك كل 10 ثوانٍ",
     });
 
-    // --- متغيرات مرونة GPS ---
-    let gpsFailCount = 0;
-    let useHighAccuracy = true;
+    // --- حدود الدقة ---
+    const GOOD_ACCURACY = 500; // أقل من 500م = GPS حقيقي
     let lastGpsTime = 0;
 
-    const onPosition = (position: GeolocationPosition) => {
+    // استقبال موقع GPS حقيقي (دقة جيدة)
+    const onGoodPosition = (position: GeolocationPosition) => {
       const { latitude: lat, longitude: lng } = position.coords;
       const spd = position.coords.speed;
       const hdg = position.coords.heading;
@@ -364,71 +364,86 @@ export default function DriverTrackingPage() {
       setGpsError(null);
       setPermissionStatus("granted");
 
-      gpsFailCount = 0;
       lastGpsTime = Date.now();
       lastPositionRef.current = { lat, lng, speed: spd, heading: hdg, accuracy: acc };
     };
 
-    const restartWatch = () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+    // فحص الموقع الوارد - قبول الدقيق فقط للعرض
+    const onPosition = (position: GeolocationPosition) => {
+      const acc = position.coords.accuracy;
+      setPermissionStatus("granted");
+
+      if (acc !== null && acc <= GOOD_ACCURACY) {
+        // موقع GPS حقيقي - تحديث كل شيء
+        onGoodPosition(position);
+      } else {
+        // موقع برج شبكة/WiFi - إرسال للسيرفر فقط لإبقاء الجلسة نشطة
+        // لا نحدّث الإحداثيات المعروضة
+        setAccuracy(acc);
+        const keepAlivePos: FullPosition = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          speed: position.coords.speed,
+          heading: position.coords.heading,
+          accuracy: acc,
+        };
+        // إرسال للسيرفر للحفاظ على الجلسة نشطة (السيرفر لن يحفظه كموقع)
+        sendLocation(keepAlivePos);
+        setGpsError(`⚠️ دقة الموقع ضعيفة (${acc ? Math.round(acc) : '?'}م) — في انتظار إشارة GPS أقوى...\nتأكد من تفعيل GPS وأنك في مكان مفتوح`);
       }
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        onPosition,
-        (error) => {
-          if (error.code === error.PERMISSION_DENIED) {
-            setPermissionStatus("denied");
-            setGpsError("تم رفض إذن الوصول للموقع!\n\nالحل:\n• iPhone: الإعدادات → Safari → الموقع → اسمح\n• Android: اضغط على القفل بجانب الرابط → أذونات الموقع → سماح");
-            return;
-          }
-          gpsFailCount++;
-          if (gpsFailCount >= 2 && useHighAccuracy) {
-            // التبديل إلى دقة أقل بعد فشلين
-            useHighAccuracy = false;
-            setGpsError("⏳ جارٍ البحث عن إشارة GPS بطريقة بديلة...");
-            restartWatch();
-          } else if (gpsFailCount < 2) {
-            setGpsError("⏳ جارٍ البحث عن إشارة GPS...");
-          } else {
-            setGpsError("⚠️ إشارة GPS ضعيفة. تأكد من تفعيل GPS وأنك في مكان مفتوح");
-          }
-        },
-        {
-          enableHighAccuracy: useHighAccuracy,
-          maximumAge: useHighAccuracy ? 15000 : 60000, // قبول مواقع مخبأة أطول
-          timeout: useHighAccuracy ? 20000 : 30000,
-        }
-      );
     };
 
-    // بدء مراقبة GPS
-    restartWatch();
+    // watchPosition دائماً بدقة عالية - لا نبدّل أبداً
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      onPosition,
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          setPermissionStatus("denied");
+          setGpsError("تم رفض إذن الوصول للموقع!\n\nالحل:\n• iPhone: الإعدادات → Safari → الموقع → اسمح\n• Android: اضغط على القفل بجانب الرابط → أذونات الموقع → سماح");
+          return;
+        }
+        // timeout أو unavailable - نستمر بالمحاولة
+        setGpsError("⏳ جارٍ البحث عن إشارة GPS... تأكد من تفعيل GPS");
+      },
+      {
+        enableHighAccuracy: true, // دائماً GPS حقيقي
+        maximumAge: 30000, // قبول موقع مخبأ حتى 30 ثانية
+        timeout: 30000, // إعطاء وقت كافٍ للهواتف الضعيفة
+      }
+    );
 
-    // مراقب ذكي: إعادة محاولة GPS إذا توقف + getCurrentPosition كبديل
+    // مراقب: محاولة getCurrentPosition كل 15 ثانية إذا لم يأت موقع
     watchdogIntervalRef.current = setInterval(() => {
       if (!isTrackingRef.current) return;
       const elapsed = Date.now() - lastGpsTime;
 
-      // إذا لم يأتِ موقع لمدة 20 ثانية، جرب getCurrentPosition كبديل
       if (elapsed > 20000 || lastGpsTime === 0) {
+        // محاولة بدقة عالية أولاً
         navigator.geolocation.getCurrentPosition(
           onPosition,
           () => {
-            // محاولة أخيرة بدقة منخفضة
+            // فشل GPS - نطلب موقع تقريبي فقط لإبقاء الجلسة
             navigator.geolocation.getCurrentPosition(
-              onPosition,
+              (pos) => {
+                // موقع تقريبي - نرسله للسيرفر فقط (لن يُحفظ كموقع حقيقي)
+                const acc = pos.coords.accuracy;
+                const keepAlivePos: FullPosition = {
+                  lat: pos.coords.latitude,
+                  lng: pos.coords.longitude,
+                  speed: pos.coords.speed,
+                  heading: pos.coords.heading,
+                  accuracy: acc,
+                };
+                setPermissionStatus("granted");
+                sendLocation(keepAlivePos);
+                setGpsError(`⚠️ GPS غير متاح — يتم إرسال نبضة فقط (دقة ${acc ? Math.round(acc) : '?'}م)`);
+              },
               () => {},
-              { enableHighAccuracy: false, maximumAge: 120000, timeout: 30000 }
+              { enableHighAccuracy: false, maximumAge: 120000, timeout: 10000 }
             );
           },
-          { enableHighAccuracy: useHighAccuracy, maximumAge: 60000, timeout: 15000 }
+          { enableHighAccuracy: true, maximumAge: 30000, timeout: 15000 }
         );
-      }
-
-      // إذا لم يأتِ موقع لمدة 30 ثانية، أعد تشغيل المراقبة بوضع مختلف
-      if (elapsed > 30000 && lastGpsTime > 0) {
-        useHighAccuracy = !useHighAccuracy;
-        restartWatch();
       }
     }, 15000);
 
@@ -440,24 +455,16 @@ export default function DriverTrackingPage() {
       }
     }, 8000);
 
-    // محاولة الحصول على الموقع فوراً مع بديل
+    // محاولة الحصول على الموقع فوراً
     navigator.geolocation.getCurrentPosition(
       (position) => {
         onPosition(position);
         if (lastPositionRef.current) sendLocation(lastPositionRef.current);
       },
       () => {
-        // بديل: محاولة بدقة أقل
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            onPosition(pos);
-            if (lastPositionRef.current) sendLocation(lastPositionRef.current);
-          },
-          () => {},
-          { enableHighAccuracy: false, maximumAge: 60000, timeout: 20000 }
-        );
+        setGpsError("⏳ جارٍ البحث عن إشارة GPS...");
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
   }, [selectedBusId, sendLocation, toast, permissionStatus, setTrackingStatus, getPendingStopKey]);
 

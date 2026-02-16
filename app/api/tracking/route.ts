@@ -237,8 +237,9 @@ export async function POST(request: Request) {
         : null;
     const parsedAccuracy = accuracy ? parseFloat(accuracy) : null;
 
+    // تجاهل مواقع أبراج الشبكة (دقة > 500م) - فقط إبقاء الجلسة نشطة
     const shouldIgnoreLowAccuracy =
-      parsedAccuracy !== null && Number.isFinite(parsedAccuracy) && parsedAccuracy > 1500;
+      parsedAccuracy !== null && Number.isFinite(parsedAccuracy) && parsedAccuracy > 500;
 
     const location = await prisma.$transaction(async (tx) => {
       const now = new Date();
