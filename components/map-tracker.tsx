@@ -25,50 +25,48 @@ interface MapTrackerProps {
   onSelectBus: (busId: string) => void;
 }
 
-// أيقونة باص مخصصة v8 — مثل Google Maps / Uber
-// الملف: viewBox 56.38×36.77 (الباص يتجه يميناً في SVG)
-// CSS rotate: 0°=يمين → كل قيمة CW (مع عقارب الساعة)
-// GPS heading: 0°=شمال، 90°=شرق
-// معايرة اتجاه الرسم داخل SVG:
-// القيمة 270 تعني أن مقدمة الباص المرسوم تتجه غرباً عند rotate(0)
-// (تم ضبطها بعد فحص الانقلاب 180° في الخريطة)
-const ICON_DRAWN_HEADING = 270;
-const BUS_ICON_URL = '/Performance/icons/bus-marker.svg?v=3';
-const createBusIcon = (isOnline: boolean, isSelected: boolean, rotationDeg?: number | null, busNumber?: string) => {
-  const rotation = rotationDeg ?? 0;
+// أيقونة باص 3D — 8 اتجاهات (صور PNG حقيقية بدل SVG)
+// الاتجاهات المتاحة: 0(أمام), 45(أمام-يمين), 90(يمين), 135(خلف-يمين),
+//                   180(خلف), 225(خلف-يسار), 270(يسار), 315(أمام-يسار)
+const BUS_DIRECTIONS = [0, 45, 90, 135, 180, 225, 270, 315] as const;
+type BusDirection = typeof BUS_DIRECTIONS[number];
 
-  // أبعاد نظيفة — نسبة 1.53:1 مثل الأصل
-  const baseW = 36;
-  const baseH = 24;
-  const scale = isSelected ? 1.2 : 1;
-  const w = Math.round(baseW * scale);
-  const h = Math.round(baseH * scale);
+// اختيار أقرب اتجاه من الـ 8 بناءً على زاوية GPS heading
+function snapToEightDirections(heading: number): BusDirection {
+  const normalized = ((heading % 360) + 360) % 360;
+  const index = Math.round(normalized / 45) % 8;
+  return BUS_DIRECTIONS[index];
+}
+
+function getBusIconUrl(direction: BusDirection): string {
+  return `/Performance/icons/bus/bus-${direction}.png`;
+}
+
+const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
+  const direction = heading != null && Number.isFinite(heading) ? snapToEightDirections(heading) : 0;
+  const iconUrl = getBusIconUrl(direction);
+
+  // حجم الأيقونة — مقياس مناسب للخريطة
+  const scale = isSelected ? 1.25 : 1;
+  const w = Math.round(48 * scale);
+  const h = Math.round(56 * scale);
 
   const accent = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
-  const opacity = isOnline ? '1' : '0.55';
-
-  // مربع يحتوي الصورة بعد أي دوران (القطر)
-  const diagonal = Math.ceil(Math.sqrt(w * w + h * h));
-  const pad = isSelected ? 4 : 0;
-  const boxSize = diagonal + pad * 2;
-  const totalW = boxSize;
-  const totalH = boxSize + (busNumber ? 15 : 0);
-  const imgLeft = (diagonal - w) / 2;
-  const imgTop = (diagonal - h) / 2;
+  const opacity = isOnline ? '1' : '0.5';
+  const totalW = w + 12;
+  const totalH = h + (busNumber ? 16 : 4);
   const glowColor = isOnline ? 'rgba(22,163,74,0.6)' : 'rgba(120,120,120,0.2)';
-  const glowScale = isSelected ? 1.2 : 1;
 
   return L.divIcon({
     className: "bus-marker-icon",
     html: `
       <div style="position:relative;width:${totalW}px;height:${totalH}px;overflow:visible;">
-        ${isOnline ? `<div style="position:absolute;left:${pad + diagonal / 2 - 22 * glowScale}px;top:${pad + diagonal / 2 + 3}px;width:${44 * glowScale}px;height:${15 * glowScale}px;border-radius:999px;background:radial-gradient(ellipse at center, ${glowColor} 0%, rgba(22,163,74,0.28) 52%, rgba(22,163,74,0) 100%);filter:blur(1.2px);animation:busGlow 1.3s ease-in-out infinite;z-index:2;pointer-events:none;"></div>` : ''}
-        ${isOnline ? `<div style="position:absolute;left:${pad + diagonal / 2 - 4}px;top:${pad + diagonal / 2 + 6}px;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,0.2),0 0 12px rgba(34,197,94,0.75);z-index:3;pointer-events:none;"></div>` : ''}
-        <div style="position:absolute;top:${pad}px;left:${pad}px;width:${diagonal}px;height:${diagonal}px;transform:rotate(${rotation}deg);transform-origin:center center;transition:transform 0.8s cubic-bezier(0.4,0,0.2,1);cursor:pointer;z-index:10;">
-          <img src="${BUS_ICON_URL}" width="${w}" height="${h}" style="position:absolute;top:${imgTop}px;left:${imgLeft}px;display:block;opacity:${opacity};filter:drop-shadow(1px 2px 3px rgba(0,0,0,0.4))${!isOnline ? ' grayscale(0.4)' : ''};pointer-events:none;" crossorigin="anonymous"/>
+        ${isOnline ? `<div style="position:absolute;left:${totalW / 2 - 22}px;top:${h - 6}px;width:44px;height:14px;border-radius:999px;background:radial-gradient(ellipse at center, ${glowColor} 0%, rgba(22,163,74,0.28) 52%, rgba(22,163,74,0) 100%);filter:blur(1.5px);animation:busGlow 1.3s ease-in-out infinite;z-index:2;pointer-events:none;"></div>` : ''}
+        <div style="position:absolute;top:2px;left:${(totalW - w) / 2}px;width:${w}px;height:${h}px;cursor:pointer;z-index:10;transition:transform 0.3s ease;">
+          <img src="${iconUrl}" width="${w}" height="${h}" style="display:block;opacity:${opacity};filter:drop-shadow(1px 2px 4px rgba(0,0,0,0.35))${!isOnline ? ' grayscale(0.5)' : ''};pointer-events:none;object-fit:contain;" />
         </div>
-        ${isSelected ? `<div style="position:absolute;top:0;left:0;width:${boxSize}px;height:${boxSize}px;border:2px solid ${accent};border-radius:50%;opacity:0.5;pointer-events:none;"></div>` : ''}
-        ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.92);color:#333;font-size:7.5px;font-weight:700;padding:1px 4px;border-radius:4px;white-space:nowrap;z-index:20;box-shadow:0 1px 2px rgba(0,0,0,0.15);border:1px solid #ddd;">${busNumber}</div>` : ''}
+        ${isSelected ? `<div style="position:absolute;top:0;left:${(totalW - w - 8) / 2}px;width:${w + 8}px;height:${h + 4}px;border:2px solid ${accent};border-radius:10px;opacity:0.5;pointer-events:none;"></div>` : ''}
+        ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.93);color:#333;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;white-space:nowrap;z-index:20;box-shadow:0 1px 3px rgba(0,0,0,0.15);border:1px solid #ddd;">${busNumber}</div>` : ''}
       </div>
       <style>
         .bus-marker-icon{background:none!important;border:none!important;}
@@ -79,8 +77,8 @@ const createBusIcon = (isOnline: boolean, isSelected: boolean, rotationDeg?: num
       </style>
     `,
     iconSize: [totalW, totalH],
-    iconAnchor: [totalW / 2, boxSize / 2],
-    popupAnchor: [0, -(diagonal / 2)],
+    iconAnchor: [totalW / 2, h / 2 + 2],
+    popupAnchor: [0, -(h / 2)],
   });
 };
 
@@ -149,24 +147,8 @@ function shortestAngleDelta(fromDeg: number, toDeg: number): number {
   return ((toDeg - fromDeg + 540) % 360) - 180;
 }
 
-function headingToIconRotation(heading: number | null | undefined): number | null {
-  if (heading == null || !Number.isFinite(heading)) return null;
-  return normalizeHeading(heading - ICON_DRAWN_HEADING);
-}
-
-function continuousRotation(prevRotation: number | undefined, targetRotation: number): number {
-  if (prevRotation == null || !Number.isFinite(prevRotation)) return targetRotation;
-  const prevNormalized = normalizeHeading(prevRotation);
-  const targetNormalized = normalizeHeading(targetRotation);
-  const delta = shortestAngleDelta(prevNormalized, targetNormalized);
-  return prevRotation + delta;
-}
-
-function snapToFourDirections(rotationDeg: number): number {
-  const normalized = normalizeHeading(rotationDeg);
-  const snapped = Math.round(normalized / 90) * 90;
-  return normalizeHeading(snapped);
-}
+// لم نعد نحتاج headingToIconRotation أو snapToFourDirections
+// لأن الأيقونات الآن صور PNG مختلفة لكل اتجاه (8 اتجاهات)
 
 function blendAngles(baseDeg: number, targetDeg: number, targetWeight = 0.7): number {
   const delta = shortestAngleDelta(baseDeg, targetDeg);
@@ -203,7 +185,7 @@ export default function MapTracker({
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLocationsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
   const prevHeadingsRef = useRef<Map<string, number>>(new Map());
-  const prevIconRotationsRef = useRef<Map<string, number>>(new Map());
+  const prevDirectionRef = useRef<Map<string, BusDirection>>(new Map());
   const roadSnapRef = useRef<Map<string, { heading: number | null; updatedAt: number }>>(new Map());
   const roadSnapInFlightRef = useRef<Set<string>>(new Set());
   const isFirstRenderRef = useRef(true);
@@ -252,7 +234,7 @@ export default function MapTracker({
         markersRef.current.delete(id);
         prevLocationsRef.current.delete(id);
         prevHeadingsRef.current.delete(id);
-        prevIconRotationsRef.current.delete(id);
+        prevDirectionRef.current.delete(id);
         roadSnapRef.current.delete(id);
         roadSnapInFlightRef.current.delete(id);
       }
@@ -445,13 +427,11 @@ export default function MapTracker({
                   prevHeadingsRef.current.set(loc.busId, refinedHeading);
                 }
 
-                const refinedTargetRotation = headingToIconRotation(refinedHeading);
-                const prevIconRotation = prevIconRotationsRef.current.get(loc.busId) ?? 0;
-                const snappedRefinedRotation = refinedTargetRotation != null
-                  ? snapToFourDirections(refinedTargetRotation)
-                  : prevIconRotation;
-                prevIconRotationsRef.current.set(loc.busId, snappedRefinedRotation);
-                marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, snappedRefinedRotation, loc.busNumber));
+                const newDirection = refinedHeading != null
+                  ? snapToEightDirections(refinedHeading)
+                  : (prevDirectionRef.current.get(loc.busId) ?? 0);
+                prevDirectionRef.current.set(loc.busId, newDirection);
+                marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, refinedHeading, loc.busNumber));
               }
             })
             .catch(() => {})
@@ -516,13 +496,11 @@ export default function MapTracker({
         prevHeadingsRef.current.set(loc.busId, heading);
       }
 
-      const targetRotation = headingToIconRotation(heading);
-      const prevIconRotation = prevIconRotationsRef.current.get(loc.busId) ?? 0;
-      const snappedIconRotation = targetRotation != null
-        ? snapToFourDirections(targetRotation)
-        : prevIconRotation;
-      prevIconRotationsRef.current.set(loc.busId, snappedIconRotation);
-      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, snappedIconRotation, loc.busNumber);
+      const currentDirection = heading != null
+        ? snapToEightDirections(heading)
+        : (prevDirectionRef.current.get(loc.busId) ?? 0);
+      prevDirectionRef.current.set(loc.busId, currentDirection);
+      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, heading, loc.busNumber);
 
       const timeDiff = Math.floor((Date.now() - new Date(loc.lastUpdate).getTime()) / 1000);
       const timeAgo = timeDiff < 60 ? `${timeDiff} ثانية` : timeDiff < 3600 ? `${Math.floor(timeDiff/60)} دقيقة` : `${Math.floor(timeDiff/3600)} ساعة`;
@@ -539,7 +517,7 @@ export default function MapTracker({
               display: flex; align-items: center; justify-content: center;
               box-shadow: 0 2px 8px rgba(249,168,37,0.3);
             ">
-              <img src="${BUS_ICON_URL}" width="30" height="20" style="display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2));" />
+              <img src="${getBusIconUrl(0)}" width="28" height="34" style="display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2));object-fit:contain;" />
             </div>
             <div>
               <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #0f172a;">باص ${loc.busNumber}</h3>
