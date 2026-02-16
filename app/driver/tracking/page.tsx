@@ -91,6 +91,7 @@ export default function DriverTrackingPage() {
   // المراجع
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const firstPositionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPositionRef = useRef<FullPosition | null>(null);
   const bestPositionRef = useRef<FullPosition | null>(null);
   const prevGpsPositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
@@ -370,6 +371,23 @@ export default function DriverTrackingPage() {
       return;
     }
 
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (gpsRetryTimerRef.current) {
+      clearTimeout(gpsRetryTimerRef.current);
+      gpsRetryTimerRef.current = null;
+    }
+    if (firstPositionTimeoutRef.current) {
+      clearTimeout(firstPositionTimeoutRef.current);
+      firstPositionTimeoutRef.current = null;
+    }
+
     setGpsError(null);
     setIsTracking(true);
     setSendCount(0);
@@ -454,6 +472,8 @@ export default function DriverTrackingPage() {
                   setSpeed(coords.speed);
                   setHeading(coords.heading);
                   setAccuracy(coords.accuracy);
+                  setGpsError(null);
+                  setPermissionStatus("granted");
                   setGpsQuality(newQuality);
 
                   // حساب المسافة والسرعة (نفس المنطق الأصلي)
@@ -523,16 +543,12 @@ export default function DriverTrackingPage() {
     }, 5000);
 
     // إرسال أول موقع بعد 3 ثوانٍ لإعطاء GPS وقت للتثبيت
-    const firstPositionTimeout = setTimeout(() => {
+    firstPositionTimeoutRef.current = setTimeout(() => {
       const pos = lastPositionRef.current;
       if (pos) {
         sendLocation(pos);
       }
     }, 3000);
-
-    // تنظيف timeout عند الإلغاء
-    const prevCleanup = () => clearTimeout(firstPositionTimeout);
-    (window as unknown as Record<string, unknown>).__trackingFirstPosCleanup = prevCleanup;
   }, [selectedBusId, sendLocation, toast, permissionStatus, setTrackingStatus, getPendingStopKey, classifyGpsQuality]);
 
   // إيقاف التتبع
@@ -549,10 +565,17 @@ export default function DriverTrackingPage() {
       clearTimeout(gpsRetryTimerRef.current);
       gpsRetryTimerRef.current = null;
     }
+    if (firstPositionTimeoutRef.current) {
+      clearTimeout(firstPositionTimeoutRef.current);
+      firstPositionTimeoutRef.current = null;
+    }
     lastPositionRef.current = null;
     bestPositionRef.current = null;
+    prevGpsPositionRef.current = null;
+    calculatedSpeedRef.current = null;
     setIsTracking(false);
     setGpsQuality("unknown");
+    setCalculatedSpeed(null);
 
     if (selectedBusId && typeof window !== "undefined") {
       localStorage.setItem(getPendingStopKey(selectedBusId), "1");
@@ -584,8 +607,21 @@ export default function DriverTrackingPage() {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      if (gpsRetryTimerRef.current) {
+        clearTimeout(gpsRetryTimerRef.current);
+        gpsRetryTimerRef.current = null;
+      }
+      if (firstPositionTimeoutRef.current) {
+        clearTimeout(firstPositionTimeoutRef.current);
+        firstPositionTimeoutRef.current = null;
+      }
       lastPositionRef.current = null;
+      bestPositionRef.current = null;
+      prevGpsPositionRef.current = null;
+      calculatedSpeedRef.current = null;
       setIsTracking(false);
+      setGpsQuality("unknown");
+      setCalculatedSpeed(null);
 
       if (typeof window !== "undefined") {
         localStorage.setItem(getPendingStopKey(activeBusId), "1");
@@ -644,6 +680,12 @@ export default function DriverTrackingPage() {
       }
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+      }
+      if (gpsRetryTimerRef.current) {
+        clearTimeout(gpsRetryTimerRef.current);
+      }
+      if (firstPositionTimeoutRef.current) {
+        clearTimeout(firstPositionTimeoutRef.current);
       }
     };
   }, []);
