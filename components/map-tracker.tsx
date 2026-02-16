@@ -34,10 +34,8 @@ interface MapTrackerProps {
 // (تم ضبطها بعد فحص الانقلاب 180° في الخريطة)
 const ICON_DRAWN_HEADING = 270;
 const BUS_ICON_URL = '/Performance/icons/bus-marker.svg?v=3';
-const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
-  // التحويل العام: rotation = heading - ICON_DRAWN_HEADING
-  // مثال: heading=0 (شمال) ومع ICON_DRAWN_HEADING=270 => rotate -270 (تكافئ +90)
-  const rotation = heading != null ? heading - ICON_DRAWN_HEADING : 0;
+const createBusIcon = (isOnline: boolean, isSelected: boolean, rotationDeg?: number | null, busNumber?: string) => {
+  const rotation = rotationDeg ?? 0;
 
   // أبعاد نظيفة — نسبة 1.53:1 مثل الأصل
   const baseW = 36;
@@ -151,6 +149,19 @@ function shortestAngleDelta(fromDeg: number, toDeg: number): number {
   return ((toDeg - fromDeg + 540) % 360) - 180;
 }
 
+function headingToIconRotation(heading: number | null | undefined): number | null {
+  if (heading == null || !Number.isFinite(heading)) return null;
+  return normalizeHeading(heading - ICON_DRAWN_HEADING);
+}
+
+function continuousRotation(prevRotation: number | undefined, targetRotation: number): number {
+  if (prevRotation == null || !Number.isFinite(prevRotation)) return targetRotation;
+  const prevNormalized = normalizeHeading(prevRotation);
+  const targetNormalized = normalizeHeading(targetRotation);
+  const delta = shortestAngleDelta(prevNormalized, targetNormalized);
+  return prevRotation + delta;
+}
+
 function blendAngles(baseDeg: number, targetDeg: number, targetWeight = 0.7): number {
   const delta = shortestAngleDelta(baseDeg, targetDeg);
   return normalizeHeading(baseDeg + delta * targetWeight);
@@ -186,6 +197,7 @@ export default function MapTracker({
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLocationsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
   const prevHeadingsRef = useRef<Map<string, number>>(new Map());
+  const prevIconRotationsRef = useRef<Map<string, number>>(new Map());
   const roadSnapRef = useRef<Map<string, { heading: number | null; updatedAt: number }>>(new Map());
   const roadSnapInFlightRef = useRef<Set<string>>(new Set());
   const isFirstRenderRef = useRef(true);
@@ -234,6 +246,7 @@ export default function MapTracker({
         markersRef.current.delete(id);
         prevLocationsRef.current.delete(id);
         prevHeadingsRef.current.delete(id);
+        prevIconRotationsRef.current.delete(id);
         roadSnapRef.current.delete(id);
         roadSnapInFlightRef.current.delete(id);
       }
@@ -493,7 +506,18 @@ export default function MapTracker({
                   prevHeadingsRef.current.set(loc.busId, refinedHeading);
                 }
 
-                marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, refinedHeading, loc.busNumber));
+                const refinedTargetRotation = headingToIconRotation(refinedHeading);
+                const prevIconRotation = prevIconRotationsRef.current.get(loc.busId);
+                const refinedIconRotation =
+                  refinedTargetRotation != null
+                    ? continuousRotation(prevIconRotation, refinedTargetRotation)
+                    : prevIconRotation ?? 0;
+
+                if (refinedTargetRotation != null) {
+                  prevIconRotationsRef.current.set(loc.busId, refinedIconRotation);
+                }
+
+                marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, refinedIconRotation, loc.busNumber));
               }
             })
             .catch(() => {})
@@ -556,8 +580,19 @@ export default function MapTracker({
       if (heading != null) {
         prevHeadingsRef.current.set(loc.busId, heading);
       }
-      
-      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, heading, loc.busNumber);
+
+      const targetRotation = headingToIconRotation(heading);
+      const prevIconRotation = prevIconRotationsRef.current.get(loc.busId);
+      const iconRotation =
+        targetRotation != null
+          ? continuousRotation(prevIconRotation, targetRotation)
+          : prevIconRotation ?? 0;
+
+      if (targetRotation != null) {
+        prevIconRotationsRef.current.set(loc.busId, iconRotation);
+      }
+
+      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, iconRotation, loc.busNumber);
 
       const timeDiff = Math.floor((Date.now() - new Date(loc.lastUpdate).getTime()) / 1000);
       const timeAgo = timeDiff < 60 ? `${timeDiff} ثانية` : timeDiff < 3600 ? `${Math.floor(timeDiff/60)} دقيقة` : `${Math.floor(timeDiff/3600)} ساعة`;
