@@ -29,7 +29,7 @@ interface MapTrackerProps {
 const BUS_ICON_URL = '/Performance/icons/bus-marker.svg?v=2';
 const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
   // heading: 0°=شمال، 90°=شرق، 180°=جنوب، 270°=غرب
-  const baseRotation = -90; // SVG الباص يتجه يميناً → -90° = شمال
+  const baseRotation = 90; // SVG الباص يتجه يساراً → +90° = شمال
   const rotation = baseRotation + (heading != null ? heading : 0);
 
   // أبعاد تحافظ على نسبة الطول/العرض الأصلية 56.38:36.77 ≈ 1.53:1
