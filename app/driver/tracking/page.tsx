@@ -335,7 +335,7 @@ export default function DriverTrackingPage() {
 
     toast({
       title: "تم بدء التتبع ✅",
-      description: "يتم إرسال موقعك كل 10 ثوانٍ",
+      description: "يتم إرسال موقعك كل 5 ثوانٍ",
     });
 
     // مراقبة الموقع باستمرار
@@ -375,46 +375,32 @@ export default function DriverTrackingPage() {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 5000,
+        maximumAge: 0,
         timeout: 20000,
       }
     );
 
-    // إرسال الموقع كل 8 ثوانٍ مع كامل البيانات
+    // إرسال الموقع كل 5 ثوانٍ مع كامل البيانات
     intervalRef.current = setInterval(() => {
       const pos = lastPositionRef.current;
       if (pos) {
         sendLocation(pos);
       }
-    }, 8000);
+    }, 5000);
 
-    // إرسال الموقع فوراً
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const fullPos: FullPosition = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          speed: position.coords.speed,
-          heading: position.coords.heading,
-          accuracy: position.coords.accuracy,
-        };
-        lastPositionRef.current = fullPos;
-        setLatitude(fullPos.lat);
-        setLongitude(fullPos.lng);
-        setSpeed(fullPos.speed);
-        setHeading(fullPos.heading);
-        setAccuracy(fullPos.accuracy);
-        setPermissionStatus("granted");
-        sendLocation(fullPos);
-      },
-      (error) => {
-        if (error.code === error.PERMISSION_DENIED) {
-          setPermissionStatus("denied");
-          setGpsError("يرجى السماح بإذن الموقع من المتصفح");
-        }
-      },
-      { enableHighAccuracy: true, timeout: 20000 }
-    );
+    // إرسال أول موقع فوراً عندما يصل من watchPosition
+    // ملاحظة: لا نستخدم getCurrentPosition مع watchPosition لتجنب التعارض في بعض المتصفحات
+    const firstPositionTimeout = setTimeout(() => {
+      const pos = lastPositionRef.current;
+      if (pos) {
+        sendLocation(pos);
+      }
+    }, 2000);
+
+    // تنظيف timeout عند الإلغاء
+    const prevCleanup = () => clearTimeout(firstPositionTimeout);
+    // حفظ cleanup في ref للتنظيف لاحقاً
+    (window as unknown as Record<string, unknown>).__trackingFirstPosCleanup = prevCleanup;
   }, [selectedBusId, sendLocation, toast, permissionStatus, setTrackingStatus, getPendingStopKey]);
 
   // إيقاف التتبع

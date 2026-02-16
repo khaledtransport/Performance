@@ -87,10 +87,8 @@ export async function GET(request: Request) {
     const busLocations = buses.map((bus) => {
       const hasLocation = bus.locations.length > 0;
       const latestLoc = hasLocation ? bus.locations[0] : null;
-      const reliableLoc = hasLocation
-        ? bus.locations.find((point) => point.accuracy !== null && point.accuracy <= 120)
-        : null;
-      const loc = reliableLoc ?? latestLoc;
+      // نعرض دائماً آخر موقع بغض النظر عن الدقة حتى يتحرك الماركر
+      const loc = latestLoc;
       
       return {
         busId: bus.id,
@@ -107,8 +105,8 @@ export async function GET(request: Request) {
       };
     });
 
-    // كاش 5 ثوان لتقليل ضغط DB عند عدة مستخدمين يتتبعون
-    apiCache.set(cacheKey, busLocations, 5000);
+    // كاش 2 ثانية لتقليل ضغط DB مع استجابة سريعة للتحديثات
+    apiCache.set(cacheKey, busLocations, 2000);
 
     return NextResponse.json(busLocations, {
       headers: { "X-Cache": "MISS" },
