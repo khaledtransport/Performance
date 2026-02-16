@@ -162,6 +162,12 @@ function continuousRotation(prevRotation: number | undefined, targetRotation: nu
   return prevRotation + delta;
 }
 
+function snapToFourDirections(rotationDeg: number): number {
+  const normalized = normalizeHeading(rotationDeg);
+  const snapped = Math.round(normalized / 90) * 90;
+  return normalizeHeading(snapped);
+}
+
 function blendAngles(baseDeg: number, targetDeg: number, targetWeight = 0.7): number {
   const delta = shortestAngleDelta(baseDeg, targetDeg);
   return normalizeHeading(baseDeg + delta * targetWeight);
@@ -517,7 +523,8 @@ export default function MapTracker({
                   prevIconRotationsRef.current.set(loc.busId, refinedIconRotation);
                 }
 
-                marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, refinedIconRotation, loc.busNumber));
+                const snappedRefinedRotation = snapToFourDirections(refinedIconRotation);
+                marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, snappedRefinedRotation, loc.busNumber));
               }
             })
             .catch(() => {})
@@ -539,9 +546,10 @@ export default function MapTracker({
           : null;
 
       let movementHeading: number | null = null;
+      let movedMetersSinceLast = 0;
       if (prev) {
-        const movedMeters = distanceMeters(prev.lat, prev.lng, loc.latitude, loc.longitude);
-        if (movedMeters >= 8) {
+        movedMetersSinceLast = distanceMeters(prev.lat, prev.lng, loc.latitude, loc.longitude);
+        if (movedMetersSinceLast >= 8) {
           movementHeading = calcBearing(prev.lat, prev.lng, loc.latitude, loc.longitude);
         }
       }
@@ -570,7 +578,7 @@ export default function MapTracker({
 
       if (heading != null && lastStableHeading != null) {
         const delta = shortestAngleDelta(lastStableHeading, heading);
-        const isUTurnLike = Math.abs(delta) >= 120 && movedMeters >= 8;
+        const isUTurnLike = Math.abs(delta) >= 120 && movedMetersSinceLast >= 8;
         const maxStep = isUTurnLike ? 180 : 70;
         if (Math.abs(delta) > maxStep) {
           heading = normalizeHeading(lastStableHeading + Math.sign(delta) * maxStep);
@@ -592,7 +600,8 @@ export default function MapTracker({
         prevIconRotationsRef.current.set(loc.busId, iconRotation);
       }
 
-      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, iconRotation, loc.busNumber);
+      const snappedIconRotation = snapToFourDirections(iconRotation);
+      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, snappedIconRotation, loc.busNumber);
 
       const timeDiff = Math.floor((Date.now() - new Date(loc.lastUpdate).getTime()) / 1000);
       const timeAgo = timeDiff < 60 ? `${timeDiff} ثانية` : timeDiff < 3600 ? `${Math.floor(timeDiff/60)} دقيقة` : `${Math.floor(timeDiff/3600)} ساعة`;
