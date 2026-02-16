@@ -23,215 +23,231 @@ interface MapTrackerProps {
   onSelectBus: (busId: string) => void;
 }
 
-// أيقونة ميني فان UberXL ثلاثية الأبعاد - منظور isometric (أعلى + جانب أيمن)
+// أيقونة ميني فان UberXL — منظور 3D isometric (3/4 أمامي علوي)
 const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
   const rotation = heading != null && heading > 0 ? heading : 0;
   const scale = isSelected ? 1.15 : 1;
-  const w = Math.round(52 * scale);
-  const h = Math.round(66 * scale);
+  const w = Math.round(64 * scale);
+  const h = Math.round(52 * scale);
   
-  // ألوان - أبيض نظيف ثلاثي الأبعاد
-  const bodyTop    = isOnline ? '#FAFAFA' : '#B0BEC5';
-  const bodyMid    = isOnline ? '#F0F0F0' : '#9EB0BA';
-  const bodySide   = isOnline ? '#E2E2E2' : '#8A9DAA';
-  const bodyShadow = isOnline ? '#CCCCCC' : '#748A96';
-  const bodyEdge   = isOnline ? '#C0C0C0' : '#607D8B';
-  const glassTop   = isOnline ? '#6B7B8D' : '#8A9DAA';
-  const glassMid   = isOnline ? '#4A5568' : '#748792';
-  const glassDark  = isOnline ? '#2D3748' : '#5A6E7C';
-  const wheelColor = '#1A1A1A';
-  const hubCap     = '#3A3A3A';
-  const hubDot     = '#5A5A5A';
-  const ledColor   = isOnline ? '#FFFFFF' : '#9E9E9E';
-  const rearLed    = isOnline ? '#FF8C00' : '#90A4AE';
-  const mirrorCol  = isOnline ? '#2D3748' : '#607D8B';
-  const accentColor  = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
-  const shadowColor  = isSelected ? 'rgba(26,115,232,0.4)' : isOnline ? 'rgba(76,175,80,0.2)' : 'rgba(0,0,0,0.06)';
-  const glowSize     = isSelected ? 22 : isOnline ? 12 : 0;
-  const uid = `v${isOnline ? '1' : '0'}${isSelected ? 's' : 'n'}`;
+  // ألوان — أبيض ثلاثي الأبعاد
+  const bodyWhite   = isOnline ? '#FFFFFF' : '#B8C4CC';
+  const bodyLight   = isOnline ? '#F2F2F2' : '#A8B8C2';
+  const bodyMid     = isOnline ? '#E6E6E6' : '#96A8B4';
+  const bodySide    = isOnline ? '#D4D4D4' : '#889AA6';
+  const bodyBottom  = isOnline ? '#C0C0C0' : '#7A8E9A';
+  const glassLight  = isOnline ? '#4A4A4A' : '#7A8A94';
+  const glassDark   = isOnline ? '#1F1F1F' : '#5A6A74';
+  const wheelOuter  = '#111111';
+  const wheelMid    = '#222222';
+  const wheelInner  = '#444444';
+  const ledStrip    = isOnline ? '#FFFFFF' : '#9E9E9E';
+  const rearLight   = isOnline ? '#FF7700' : '#90A4AE';
+  const mirrorDark  = isOnline ? '#2A2A2A' : '#5A6A74';
+  const accentColor = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
+  const shadowColor = isSelected ? 'rgba(26,115,232,0.35)' : isOnline ? 'rgba(76,175,80,0.18)' : 'rgba(0,0,0,0.05)';
+  const glowSize    = isSelected ? 20 : isOnline ? 10 : 0;
+  const uid = `m${isOnline ? '1' : '0'}${isSelected ? 's' : 'n'}`;
   
   const svgCar = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 68 86" width="${w}" height="${h}">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 140" width="${w}" height="${h}">
       <defs>
-        <linearGradient id="tp${uid}" x1="0" y1="0" x2="1" y2="0.8">
-          <stop offset="0%" stop-color="white" stop-opacity="0.6"/>
-          <stop offset="40%" stop-color="${bodyTop}"/>
+        <linearGradient id="bd${uid}" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${bodyWhite}"/>
           <stop offset="100%" stop-color="${bodyMid}"/>
         </linearGradient>
-        <linearGradient id="sw${uid}" x1="0" y1="0" x2="1" y2="0.5">
+        <linearGradient id="sd${uid}" x1="0" y1="0" x2="0.8" y2="1">
           <stop offset="0%" stop-color="${bodySide}"/>
-          <stop offset="100%" stop-color="${bodyShadow}"/>
+          <stop offset="100%" stop-color="${bodyBottom}"/>
         </linearGradient>
-        <linearGradient id="gl${uid}" x1="0.2" y1="0" x2="0.8" y2="1">
-          <stop offset="0%" stop-color="${glassTop}"/>
-          <stop offset="45%" stop-color="${glassMid}"/>
+        <linearGradient id="gd${uid}" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${glassLight}"/>
           <stop offset="100%" stop-color="${glassDark}"/>
         </linearGradient>
-        <linearGradient id="hl${uid}" x1="0" y1="0" x2="0.6" y2="1">
-          <stop offset="0%" stop-color="white" stop-opacity="0.22"/>
+        <linearGradient id="tp${uid}" x1="0.3" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stop-color="${bodyWhite}"/>
+          <stop offset="100%" stop-color="${bodyLight}"/>
+        </linearGradient>
+        <linearGradient id="hl${uid}" x1="0" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stop-color="white" stop-opacity="0.3"/>
           <stop offset="100%" stop-color="white" stop-opacity="0"/>
         </linearGradient>
-        <filter id="ds${uid}">
-          <feDropShadow dx="2" dy="3" stdDeviation="2.5" flood-color="rgba(0,0,0,0.18)"/>
+        <radialGradient id="wh${uid}">
+          <stop offset="0%" stop-color="${wheelInner}"/>
+          <stop offset="60%" stop-color="${wheelMid}"/>
+          <stop offset="100%" stop-color="${wheelOuter}"/>
+        </radialGradient>
+        <filter id="ds${uid}" x="-10%" y="-10%" width="120%" height="130%">
+          <feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="rgba(0,0,0,0.2)"/>
         </filter>
-        <filter id="gb${uid}">
-          <feGaussianBlur stdDeviation="0.6"/>
+        <filter id="gl${uid}">
+          <feGaussianBlur stdDeviation="1"/>
         </filter>
       </defs>
 
       <!-- ===== ظل الأرض ===== -->
-      <ellipse cx="37" cy="83" rx="24" ry="4.5" fill="rgba(0,0,0,0.07)"/>
+      <ellipse cx="95" cy="132" rx="55" ry="7" fill="rgba(0,0,0,0.08)"/>
 
-      <!-- ===== الجدار الأيمن (العمق ثلاثي الأبعاد) ===== -->
+      <!-- ===== الجسم السفلي / الجانب الأيمن (العمق 3D) ===== -->
       <path d="
-        M48,14 Q54,18 56,26
-        L56,56 Q54,66 48,72
-        L46,70 Q50,64 52,56
-        L52,26 Q50,20 46,16 Z"
-        fill="url(#sw${uid})"/>
-      <!-- حافة سفلية -->
-      <path d="
-        M18,74 Q32,80 46,74
-        L56,64 Q56,70 48,76
-        Q32,82 18,78 Q12,74 12,68 Z"
-        fill="${bodyShadow}" opacity="0.3"/>
+        M42,75 Q42,90 55,100
+        L145,105 Q155,100 158,90
+        L160,70 Q158,60 150,55
+        L145,100 Q130,108 80,108
+        Q50,105 42,95 Z"
+        fill="url(#sd${uid})" opacity="0.8"/>
 
-      <!-- ===== الجسم العلوي الرئيسي ===== -->
+      <!-- ===== قاع السيارة (شريط سفلي) ===== -->
       <path d="
-        M24,8 Q34,3 44,8
-        Q50,12 52,22 L52,56
-        Q50,66 44,72 Q34,78 24,72
-        Q16,66 14,56 L14,22
-        Q16,12 24,8 Z"
-        fill="url(#tp${uid})" filter="url(#ds${uid})"/>
-      <path d="
-        M24,8 Q34,3 44,8
-        Q50,12 52,22 L52,56
-        Q50,66 44,72 Q34,78 24,72
-        Q16,66 14,56 L14,22
-        Q16,12 24,8 Z"
-        fill="none" stroke="${bodyEdge}" stroke-width="0.4" opacity="0.4"/>
+        M50,100 Q80,112 130,108
+        L148,104 Q155,98 156,88
+        L158,92 Q156,104 148,110
+        Q130,116 80,114
+        Q50,112 42,100 Z"
+        fill="${bodyBottom}" opacity="0.5"/>
 
-      <!-- ===== غطاء المحرك ===== -->
+      <!-- ===== الجسم الرئيسي العلوي ===== -->
       <path d="
-        M26,10 Q34,6 42,10
-        Q48,14 48,20 L48,30
-        L18,30 L18,20
-        Q18,14 26,10 Z"
+        M50,78 Q42,68 42,55
+        Q42,35 55,24
+        L110,18 Q130,18 145,28
+        Q155,38 155,55
+        L155,75 Q150,90 135,98
+        L75,100 Q55,95 50,78 Z"
+        fill="url(#bd${uid})" filter="url(#ds${uid})"/>
+      <!-- حافة خفيفة -->
+      <path d="
+        M50,78 Q42,68 42,55
+        Q42,35 55,24
+        L110,18 Q130,18 145,28
+        Q155,38 155,55
+        L155,75 Q150,90 135,98
+        L75,100 Q55,95 50,78 Z"
+        fill="none" stroke="${bodyMid}" stroke-width="0.4" opacity="0.5"/>
+
+      <!-- ===== غطاء المحرك الأمامي (الكبنة) ===== -->
+      <path d="
+        M65,28 Q90,16 125,22
+        Q140,26 148,35
+        L148,50 L56,50
+        L56,42 Q56,32 65,28 Z"
         fill="url(#tp${uid})"/>
-      <!-- لمعان الغطاء الأمامي -->
-      <path d="M28,11 Q34,8 40,11 L38,22 L24,22 Z"
-        fill="white" opacity="0.2"/>
+      <!-- لمعان الغطاء -->
+      <path d="M72,26 Q95,18 120,24 L115,40 L68,42 Z"
+        fill="white" opacity="0.18"/>
 
-      <!-- ===== شريط LED الأمامي ===== -->
-      <path d="M26,7.5 Q34,3.5 42,7.5"
-        stroke="${ledColor}" stroke-width="2.5" fill="none"
-        stroke-linecap="round" filter="url(#gb${uid})"
-        opacity="${isOnline ? '1' : '0.35'}"/>
+      <!-- ===== شريط LED الأمامي الرفيع ===== -->
+      <path d="M62,24 Q90,14 132,22"
+        stroke="${ledStrip}" stroke-width="3" fill="none"
+        stroke-linecap="round" filter="url(#gl${uid})"
+        opacity="${isOnline ? '1' : '0.3'}"/>
       ${isOnline ? `
-      <path d="M28,8 Q34,5 40,8"
-        stroke="white" stroke-width="0.8" fill="none"
-        stroke-linecap="round" opacity="0.5"/>` : ''}
+      <path d="M65,25 Q90,16 130,23"
+        stroke="white" stroke-width="1" fill="none"
+        stroke-linecap="round" opacity="0.45"/>` : ''}
 
-      <!-- ===== الزجاج الأمامي (كبير، منحني) ===== -->
+      <!-- ===== الزجاج الأمامي (كبير منحني) ===== -->
       <path d="
-        M20,30 L48,30
-        L46,44 Q44,46 34,46
-        Q22,46 20,44 Z"
-        fill="url(#gl${uid})"/>
+        M56,50 L148,50
+        L142,72 Q135,76 100,76
+        Q68,76 60,72 Z"
+        fill="url(#gd${uid})"/>
+      <!-- إطار الزجاج الأبيض -->
       <path d="
-        M20,30 L48,30
-        L46,44 Q44,46 34,46
-        Q22,46 20,44 Z"
-        fill="none" stroke="${bodyTop}" stroke-width="1.3"/>
-      <!-- انعكاس الزجاج -->
-      <path d="M24,32 L35,32 L34,42 Q30,43 26,42 Z"
-        fill="white" opacity="0.08"/>
+        M56,50 L148,50
+        L142,72 Q135,76 100,76
+        Q68,76 60,72 Z"
+        fill="none" stroke="${bodyWhite}" stroke-width="1.5"/>
+      <!-- انعكاس الزجاج الأمامي -->
+      <path d="M64,52 L105,52 L102,70 Q88,72 72,70 Z"
+        fill="white" opacity="0.07"/>
 
       <!-- ===== السقف ===== -->
       <path d="
-        M22,46 L44,46
-        L44,60 Q42,62 34,62
-        Q24,62 22,60 Z"
+        M62,76 L138,76
+        L138,94 Q130,98 100,98
+        Q72,98 62,94 Z"
         fill="url(#tp${uid})"/>
-      <!-- لمعان السقف ثلاثي الأبعاد -->
-      <path d="M24,47 L34,47 L34,60 Q30,61 24,59 Z"
+      <!-- لمعان السقف -->
+      <path d="M66,77 L100,77 L100,94 Q85,96 66,93 Z"
         fill="url(#hl${uid})"/>
 
-      <!-- ===== نوافذ الجانب الأيمن (على الجدار) ===== -->
+      <!-- ===== النافذة الجانبية اليمنى (على الجدار) ===== -->
       <path d="
-        M48,32 L55,26
-        L56,36 L56,54
-        L55,62 L48,58
-        L48,46 Z"
+        M148,52 L160,48
+        L160,82 L152,92
+        L142,96 L140,76 Z"
         fill="${glassDark}" opacity="0.55"/>
-      <!-- فواصل النوافذ -->
-      <line x1="50" y1="40" x2="56" y2="38" stroke="${bodySide}" stroke-width="0.9" opacity="0.7"/>
-      <line x1="49.5" y1="50" x2="55" y2="48" stroke="${bodySide}" stroke-width="0.9" opacity="0.7"/>
+      <!-- فاصل نافذة أول -->
+      <line x1="150" y1="62" x2="160" y2="60" stroke="${bodySide}" stroke-width="1" opacity="0.6"/>
+      <!-- فاصل نافذة ثاني -->
+      <line x1="148" y1="76" x2="158" y2="74" stroke="${bodySide}" stroke-width="1" opacity="0.6"/>
+      <!-- مقابض الأبواب -->
+      <rect x="152" y="66" width="4" height="1.2" rx="0.6" fill="${bodySide}" opacity="0.7"/>
+      <rect x="150" y="80" width="4" height="1.2" rx="0.6" fill="${bodySide}" opacity="0.7"/>
 
-      <!-- ===== نوافذ الجانب الأيسر (خفيفة الرؤية) ===== -->
-      <path d="M18,32 L14,26 L14,56 L16,62 L20,58 L20,46 Z"
-        fill="${glassDark}" opacity="0.2"/>
+      <!-- ===== نافذة جانب أيسر (خفيفة) ===== -->
+      <path d="M56,52 L44,48 L44,80 L50,90 L60,94 L60,76 Z"
+        fill="${glassDark}" opacity="0.18"/>
 
       <!-- ===== الزجاج الخلفي ===== -->
       <path d="
-        M24,62 L44,62
-        L46,68 Q44,70 34,70
-        Q24,70 22,68 Z"
-        fill="url(#gl${uid})" opacity="0.6"/>
+        M68,94 L136,94
+        L140,102 Q130,106 100,106
+        Q72,106 64,102 Z"
+        fill="url(#gd${uid})" opacity="0.5"/>
       <path d="
-        M24,62 L44,62
-        L46,68 Q44,70 34,70
-        Q24,70 22,68 Z"
-        fill="none" stroke="${bodyTop}" stroke-width="0.8"/>
+        M68,94 L136,94
+        L140,102 Q130,106 100,106
+        Q72,106 64,102 Z"
+        fill="none" stroke="${bodyLight}" stroke-width="0.8"/>
 
-      <!-- ===== المؤخرة ===== -->
+      <!-- ===== المؤخرة السفلية ===== -->
       <path d="
-        M22,70 Q24,74 34,76
-        Q44,74 46,70
-        L48,74 Q44,78 34,80
-        Q24,78 20,74 Z"
+        M64,104 Q72,110 100,112
+        Q130,110 140,104
+        L144,108 Q130,116 100,118
+        Q72,116 58,108 Z"
         fill="${bodySide}"/>
 
-      <!-- ===== العجلات ===== -->
-      <!-- أمامي أيمن -->
-      <ellipse cx="54" cy="22" rx="4.5" ry="3.2" fill="${wheelColor}"/>
-      <ellipse cx="54" cy="22" rx="2.5" ry="1.8" fill="${hubCap}"/>
-      <circle cx="54" cy="22" r="1" fill="${hubDot}"/>
+      <!-- ===== العجلات — دوائر واقعية ===== -->
+      <!-- أمامي أيمن (كبير - أقرب) -->
+      <ellipse cx="158" cy="50" rx="8" ry="5.5" fill="url(#wh${uid})"/>
+      <ellipse cx="158" cy="50" rx="4.5" ry="3" fill="${wheelMid}"/>
+      <circle cx="158" cy="50" r="1.5" fill="${wheelInner}"/>
       <!-- خلفي أيمن -->
-      <ellipse cx="55" cy="62" rx="4.5" ry="3.2" fill="${wheelColor}"/>
-      <ellipse cx="55" cy="62" rx="2.5" ry="1.8" fill="${hubCap}"/>
-      <circle cx="55" cy="62" r="1" fill="${hubDot}"/>
-      <!-- أمامي أيسر -->
-      <ellipse cx="12" cy="20" rx="4" ry="2.8" fill="${wheelColor}"/>
-      <ellipse cx="12" cy="20" rx="2.2" ry="1.5" fill="${hubCap}"/>
-      <circle cx="12" cy="20" r="0.8" fill="${hubDot}"/>
+      <ellipse cx="156" cy="96" rx="8" ry="5.5" fill="url(#wh${uid})"/>
+      <ellipse cx="156" cy="96" rx="4.5" ry="3" fill="${wheelMid}"/>
+      <circle cx="156" cy="96" r="1.5" fill="${wheelInner}"/>
+      <!-- أمامي أيسر (أصغر - أبعد) -->
+      <ellipse cx="42" cy="46" rx="6.5" ry="4.5" fill="url(#wh${uid})"/>
+      <ellipse cx="42" cy="46" rx="3.5" ry="2.5" fill="${wheelMid}"/>
+      <circle cx="42" cy="46" r="1.2" fill="${wheelInner}"/>
       <!-- خلفي أيسر -->
-      <ellipse cx="12" cy="60" rx="4" ry="2.8" fill="${wheelColor}"/>
-      <ellipse cx="12" cy="60" rx="2.2" ry="1.5" fill="${hubCap}"/>
-      <circle cx="12" cy="60" r="0.8" fill="${hubDot}"/>
+      <ellipse cx="42" cy="92" rx="6.5" ry="4.5" fill="url(#wh${uid})"/>
+      <ellipse cx="42" cy="92" rx="3.5" ry="2.5" fill="${wheelMid}"/>
+      <circle cx="42" cy="92" r="1.2" fill="${wheelInner}"/>
 
       <!-- ===== المرايا الجانبية ===== -->
-      <ellipse cx="10" cy="32" rx="2.5" ry="1.4" fill="${mirrorCol}" stroke="${bodyEdge}" stroke-width="0.3"/>
-      <ellipse cx="56" cy="28" rx="2.5" ry="1.4" fill="${mirrorCol}" stroke="${bodyEdge}" stroke-width="0.3"/>
+      <ellipse cx="38" cy="52" rx="3.5" ry="2" fill="${mirrorDark}" stroke="${bodyMid}" stroke-width="0.3"/>
+      <ellipse cx="162" cy="48" rx="3.5" ry="2" fill="${mirrorDark}" stroke="${bodyMid}" stroke-width="0.3"/>
 
-      <!-- ===== الإشارات الخلفية (برتقالي) ===== -->
-      <circle cx="24" cy="75" r="1.6" fill="${rearLed}" opacity="0.9"/>
-      <circle cx="44" cy="75" r="1.6" fill="${rearLed}" opacity="0.9"/>
-      ${isOnline ? `
-      <circle cx="24" cy="75" r="0.7" fill="white" opacity="0.5"/>
-      <circle cx="44" cy="75" r="0.7" fill="white" opacity="0.5"/>` : ''}
+      <!-- ===== الإشارة الخلفية (برتقالي — أعلى يسار) ===== -->
+      <circle cx="62" cy="106" r="2.2" fill="${rearLight}" opacity="0.9"/>
+      ${isOnline ? `<circle cx="62" cy="106" r="1" fill="white" opacity="0.5"/>` : ''}
+      <circle cx="140" cy="106" r="2.2" fill="${rearLight}" opacity="0.9"/>
+      ${isOnline ? `<circle cx="140" cy="106" r="1" fill="white" opacity="0.5"/>` : ''}
 
-      <!-- ===== لمعان ثلاثي الأبعاد ===== -->
-      <path d="M28,6 Q34,4 40,6 L38,14 L26,14 Z"
-        fill="white" opacity="0.14"/>
-      <path d="M16,16 L14,30 L14,44 L16,48 L18,38 L18,22 Z"
-        fill="white" opacity="0.05"/>
+      <!-- ===== لمعان ثلاثي الأبعاد على الجسم ===== -->
+      <path d="M70,20 Q95,14 125,20 L120,36 L72,38 Z"
+        fill="white" opacity="0.12"/>
+      <path d="M46,40 L44,55 L44,70 L46,78 L50,68 L50,48 Z"
+        fill="white" opacity="0.04"/>
 
       ${isSelected ? `
-      <ellipse cx="34" cy="42" rx="36" ry="44"
-        fill="none" stroke="${accentColor}" stroke-width="1.2"
-        opacity="0.35" stroke-dasharray="3,2.5"/>` : ''}
+      <ellipse cx="100" cy="72" rx="88" ry="66"
+        fill="none" stroke="${accentColor}" stroke-width="1.5"
+        opacity="0.3" stroke-dasharray="4,3"/>` : ''}
     </svg>
   `;
 
