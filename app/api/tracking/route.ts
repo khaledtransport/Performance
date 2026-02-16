@@ -75,7 +75,7 @@ export async function GET(request: Request) {
       include: {
         locations: {
           orderBy: { timestamp: "desc" },
-          take: 1,
+          take: 12,
         },
         districts: {
           include: { district: true },
@@ -86,7 +86,11 @@ export async function GET(request: Request) {
     // عرض جميع الباصات، حتى التي بدون موقع
     const busLocations = buses.map((bus) => {
       const hasLocation = bus.locations.length > 0;
-      const loc = hasLocation ? bus.locations[0] : null;
+      const latestLoc = hasLocation ? bus.locations[0] : null;
+      const reliableLoc = hasLocation
+        ? bus.locations.find((point) => point.accuracy !== null && point.accuracy <= 120)
+        : null;
+      const loc = reliableLoc ?? latestLoc;
       
       return {
         busId: bus.id,
@@ -96,8 +100,8 @@ export async function GET(request: Request) {
         longitude: loc?.longitude ?? 39.1925,
         speed: loc?.speed ?? 0,
         heading: loc?.heading ?? null,
-        accuracy: loc?.accuracy ?? null,
-        lastUpdate: loc?.timestamp ?? bus.createdAt,
+        accuracy: latestLoc?.accuracy ?? null,
+        lastUpdate: latestLoc?.timestamp ?? bus.createdAt,
         isOnline: activeBusSet.has(bus.id),
         hasLocation, // هل يوجد موقع حقيقي
       };
@@ -233,6 +237,9 @@ export async function POST(request: Request) {
         : null;
     const parsedAccuracy = accuracy ? parseFloat(accuracy) : null;
 
+    const shouldIgnoreLowAccuracy =
+      parsedAccuracy !== null && Number.isFinite(parsedAccuracy) && parsedAccuracy > 300;
+
     const location = await prisma.$transaction(async (tx) => {
       const now = new Date();
 
@@ -271,6 +278,18 @@ export async function POST(request: Request) {
             source: "DRIVER_APP",
           },
         });
+      }
+
+      if (shouldIgnoreLowAccuracy) {
+        await tx.trackingSession.update({
+          where: { id: session.id },
+          data: {
+            lastPointAt: now,
+            routeId: session.routeId ?? activeRoute?.id ?? null,
+          },
+        });
+
+        return null;
       }
 
       // حفظ متوافق مع النظام الحالي
@@ -312,6 +331,17 @@ export async function POST(request: Request) {
 
     // إبطال كاش التتبع عند تحديث الموقع
     apiCache.delete("tracking:all");
+
+    if (!location) {
+      return NextResponse.json(
+        {
+          ignored: true,
+          reason: "LOW_ACCURACY",
+          accuracy: parsedAccuracy,
+        },
+        { status: 202 }
+      );
+    }
 
     // حذف المواقع القديمة (أكثر من 24 ساعة) — بشكل غير متزامن
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
