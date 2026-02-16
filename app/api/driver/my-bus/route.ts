@@ -2,6 +2,22 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+async function getActiveBuses() {
+  const buses = await prisma.bus.findMany({
+    where: { isActive: true },
+    include: {
+      districts: { include: { district: true } },
+    },
+    orderBy: { busNumber: "asc" },
+  });
+
+  return buses.map((bus) => ({
+    id: bus.id,
+    busNumber: bus.busNumber,
+    district: bus.districts[0]?.district?.name || "غير محدد",
+  }));
+}
+
 // GET: الحصول على الباص المخصص للسائق الحالي عبر ربط User → Driver → Assignment
 export async function GET() {
   try {
@@ -10,7 +26,7 @@ export async function GET() {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
-    // جلب المستخدم مع السائق المربوط
+    // جلب المستخدم مع السائق المربوط (إن وجد)
     const fullUser = await prisma.user.findUnique({
       where: { id: user.userId },
       include: {
@@ -18,6 +34,8 @@ export async function GET() {
           include: {
             assignments: {
               where: { isActive: true },
+              orderBy: { assignedAt: "desc" },
+              take: 1,
               include: {
                 bus: {
                   include: {
@@ -31,28 +49,53 @@ export async function GET() {
       },
     });
 
-    if (!fullUser?.driver) {
-      // المستخدم غير مربوط بسائق - أرجع قائمة الباصات للاختيار اليدوي
-      const buses = await prisma.bus.findMany({
-        where: { isActive: true },
-        include: {
-          districts: { include: { district: true } },
-        },
-        orderBy: { busNumber: "asc" },
-      });
+    if (!fullUser) {
+      return NextResponse.json({ error: "المستخدم غير موجود" }, { status: 404 });
+    }
 
+    let driver = fullUser.driver;
+
+    if (!driver && fullUser.role === "DRIVER") {
+      const normalizedName = fullUser.fullName.trim();
+
+      if (normalizedName) {
+        const matchedDrivers = await prisma.driver.findMany({
+          where: {
+            name: {
+              equals: normalizedName,
+              mode: "insensitive",
+            },
+          },
+          include: {
+            assignments: {
+              where: { isActive: true },
+              orderBy: { assignedAt: "desc" },
+              take: 1,
+              include: {
+                bus: {
+                  include: {
+                    districts: { include: { district: true } },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (matchedDrivers.length === 1) {
+          driver = matchedDrivers[0];
+        }
+      }
+    }
+
+    if (!driver) {
       return NextResponse.json({
         driver: null,
         assignedBus: null,
-        availableBuses: buses.map((bus) => ({
-          id: bus.id,
-          busNumber: bus.busNumber,
-          district: bus.districts[0]?.district?.name || "غير محدد",
-        })),
+        availableBuses: await getActiveBuses(),
       });
     }
 
-    const driver = fullUser.driver;
     const activeAssignment = driver.assignments[0];
 
     if (!activeAssignment) {
@@ -81,23 +124,10 @@ export async function GET() {
         });
       }
 
-      // السائق مربوط لكن بدون باص مخصص حالياً
-      const buses = await prisma.bus.findMany({
-        where: { isActive: true },
-        orderBy: { busNumber: "asc" },
-        include: {
-          districts: { include: { district: true } },
-        },
-      });
-
       return NextResponse.json({
         driver: { id: driver.id, name: driver.name },
         assignedBus: null,
-        availableBuses: buses.map((bus) => ({
-          id: bus.id,
-          busNumber: bus.busNumber,
-          district: bus.districts[0]?.district?.name || "غير محدد",
-        })),
+        availableBuses: await getActiveBuses(),
       });
     }
 
