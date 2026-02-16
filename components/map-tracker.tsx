@@ -23,64 +23,45 @@ interface MapTrackerProps {
   onSelectBus: (busId: string) => void;
 }
 
-// أيقونة باص نظيفة v5 — حجم مناسب للخريطة (32×44px)
-// ★ لاستبدال الأيقونة بتصميمك: ضع ملف PNG بالمسار /public/icons/bus-marker.png بأبعاد 64×88 بكسل
-// ★ الأيقونة يجب أن تكون موجهة للأعلى (شمال = 0°)، النظام يدور الأيقونة تلقائياً حسب اتجاه الجوال
+// أيقونة باص مخصصة v6 — تستخدم ملف SVG من /public/icons/bus-marker.svg
+// الملف الأصلي أفقي (56×37)، يتم تدويره -90° ليتجه للأعلى + heading من GPS
+const BUS_ICON_URL = '/Performance/icons/bus-marker.svg';
 const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
   // heading: 0°=شمال، 90°=شرق، 180°=جنوب، 270°=غرب — يأتي من GPS الجوال
-  const rotation = heading != null ? heading : 0;
-  const baseW = 32;
-  const baseH = 44;
-  const scale = isSelected ? 1.18 : 1;
+  // الملف SVG أفقي (الباص يتجه يميناً)، لذا نضيف -90° ليتجه شمالاً عند heading=0
+  const baseRotation = -90;
+  const rotation = baseRotation + (heading != null ? heading : 0);
+
+  // أبعاد العرض: الباص بعد التدوير -90° يصبح طوليّاً (عرض=26, ارتفاع=40)
+  const baseW = 40;
+  const baseH = 40;
+  const scale = isSelected ? 1.2 : 1;
   const w = Math.round(baseW * scale);
   const h = Math.round(baseH * scale);
   const glow = isSelected ? 14 : isOnline ? 6 : 0;
 
-  const body    = isOnline ? '#FFFFFF' : '#B0BEC5';
-  const bodyAlt = isOnline ? '#F0F0F0' : '#9EB0BA';
-  const stroke  = isOnline ? '#CFD8DC' : '#90A4AE';
-  const glass   = isOnline ? '#455A64' : '#78909C';
-  const glassL  = isOnline ? '#607D8B' : '#90A4AE';
-  const wheel   = '#263238';
-  const accent  = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
-  const shadow  = isSelected ? 'rgba(26,115,232,0.35)' : isOnline ? 'rgba(76,175,80,0.18)' : 'rgba(0,0,0,0.04)';
-
-  // SVG بسيط — منظور علوي واضح حتى بالحجم صغير
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 44" width="${w}" height="${h}">
-<defs><filter id="ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="rgba(0,0,0,0.18)"/></filter></defs>
-<g filter="url(#ds)">
-<rect x="5" y="4" width="22" height="36" rx="7" ry="8" fill="${body}" stroke="${stroke}" stroke-width="0.8"/>
-<path d="M7,14 L7,9 Q7,5 11,4.5 L21,4.5 Q25,5 25,9 L25,14 Q22,17 16,17 Q10,17 7,14Z" fill="${glass}" opacity="0.8"/>
-<path d="M8,32 L8,28 Q12,26 16,26 Q20,26 24,28 L24,32 Q21,35 16,35 Q11,35 8,32Z" fill="${glassL}" opacity="0.55"/>
-<rect x="9" y="18" width="14" height="7" rx="2" fill="${bodyAlt}" stroke="${stroke}" stroke-width="0.3"/>
-<ellipse cx="6" cy="12" rx="2.5" ry="1.5" fill="${wheel}" opacity="0.85"/>
-<ellipse cx="26" cy="12" rx="2.5" ry="1.5" fill="${wheel}" opacity="0.85"/>
-<ellipse cx="6" cy="32" rx="2.5" ry="1.5" fill="${wheel}" opacity="0.85"/>
-<ellipse cx="26" cy="32" rx="2.5" ry="1.5" fill="${wheel}" opacity="0.85"/>
-<circle cx="11" cy="38" r="1.5" fill="#EF5350" opacity="0.8"/>
-<circle cx="21" cy="38" r="1.5" fill="#EF5350" opacity="0.8"/>
-${isOnline ? '<line x1="11" y1="3.5" x2="21" y2="3.5" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>' : ''}
-</g>
-${isSelected ? `<rect x="2" y="1" width="28" height="42" rx="9" ry="10" fill="none" stroke="${accent}" stroke-width="1.2" opacity="0.4" stroke-dasharray="3,2"/>` : ''}
-</svg>`;
+  const accent = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
+  const shadow = isSelected ? 'rgba(26,115,232,0.35)' : isOnline ? 'rgba(76,175,80,0.18)' : 'rgba(0,0,0,0.04)';
+  const opacity = isOnline ? '1' : '0.5';
 
   const totalW = w + glow * 2;
-  const totalH = h + glow * 2 + (busNumber ? 14 : 0);
+  const totalH = h + glow * 2 + (busNumber ? 16 : 0);
 
   return L.divIcon({
     className: "bus-marker-icon",
     html: `
       <div style="position:relative;width:${totalW}px;height:${totalH}px;">
         ${glow > 0 ? `<div style="position:absolute;width:${totalW}px;height:${h + glow * 2}px;top:0;left:0;border-radius:50%;background:radial-gradient(circle,${shadow} 0%,transparent 70%);${isOnline && !isSelected ? 'animation:busPulse 3s ease-in-out infinite;' : ''}"></div>` : ''}
-        <div style="position:absolute;top:${glow}px;left:${glow}px;width:${w}px;height:${h}px;transform:rotate(${rotation}deg);transform-origin:center center;transition:transform 1s cubic-bezier(0.4,0,0.2,1);cursor:pointer;z-index:10;">
-          <img src="data:image/svg+xml,${encodeURIComponent(svg)}" width="${w}" height="${h}" style="display:block;"/>
+        <div style="position:absolute;top:${glow}px;left:${glow}px;width:${w}px;height:${h}px;transform:rotate(${rotation}deg);transform-origin:center center;transition:transform 1s cubic-bezier(0.4,0,0.2,1);cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">
+          <img src="${BUS_ICON_URL}" width="${w}" height="${h}" style="display:block;object-fit:contain;opacity:${opacity};filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25))${!isOnline ? ' grayscale(0.6)' : ''};"/>
         </div>
+        ${isSelected ? `<div style="position:absolute;top:${glow - 3}px;left:${glow - 3}px;width:${w + 6}px;height:${h + 6}px;border:2px solid ${accent};border-radius:50%;opacity:0.5;"></div>` : ''}
         ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.95);color:#1A1A2E;font-size:8px;font-weight:800;padding:1px 5px;border-radius:5px;white-space:nowrap;z-index:20;box-shadow:0 1px 3px rgba(0,0,0,0.15);border:1px solid ${isOnline ? '#E0E0E0' : '#B0BEC5'};">${busNumber}</div>` : ''}
       </div>
       <style>.bus-marker-icon{background:none!important;border:none!important;}@keyframes busPulse{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:.3;transform:scale(1.05)}}</style>
     `,
     iconSize: [totalW, totalH],
-    iconAnchor: [totalW / 2, totalH / 2],
+    iconAnchor: [totalW / 2, (totalH - (busNumber ? 16 : 0)) / 2],
     popupAnchor: [0, -(h / 2) - glow],
   });
 };
