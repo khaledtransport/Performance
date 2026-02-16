@@ -23,51 +23,56 @@ interface MapTrackerProps {
   onSelectBus: (busId: string) => void;
 }
 
-// أيقونة باص مخصصة v7 — 3D perspective من /public/icons/bus-marker.svg
-// الملف الأصلي: viewBox 56.38×36.77 (الباص يتجه يميناً بمنظور 3D)
-// التدوير: الباص يتجه يميناً = heading 90° (شرق)، لذا baseRotation = -90° ليتجه شمالاً عند heading=0
-const BUS_ICON_URL = '/Performance/icons/bus-marker.svg?v=2';
+// أيقونة باص مخصصة v8 — مثل Google Maps / Uber
+// الملف: viewBox 56.38×36.77 (الباص يتجه يميناً في SVG)
+// CSS rotate: 0°=يمين → كل قيمة CW (مع عقارب الساعة)
+// GPS heading: 0°=شمال، 90°=شرق
+// → لتحويل heading إلى CSS rotate: الباص يتجه يميناً=شرق=heading90
+//   فالفارق = heading - 90  →  baseRotation = -90
+const BUS_ICON_URL = '/Performance/icons/bus-marker.svg?v=3';
 const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
-  // heading: 0°=شمال، 90°=شرق، 180°=جنوب، 270°=غرب
-  const baseRotation = 90; // SVG الباص يتجه يساراً → +90° = شمال
-  const rotation = baseRotation + (heading != null ? heading : 0);
+  // الباص في SVG يتجه لليمين (شرق = 90°)
+  // لتحويل GPS heading إلى CSS rotation: rotation = heading - 90
+  // heading=0(شمال) → rotate -90° (يلف من اليمين للأعلى) ✓
+  // heading=90(شرق) → rotate 0° (يبقى يمين) ✓
+  // heading=180(جنوب) → rotate 90° (يلف للأسفل) ✓
+  // heading=270(غرب) → rotate 180° (يلف لليسار) ✓
+  const rotation = (heading != null ? heading : 0) - 90;
 
-  // أبعاد تحافظ على نسبة الطول/العرض الأصلية 56.38:36.77 ≈ 1.53:1
-  const baseW = 34; // عرض الباص (أفقي في الملف)
-  const baseH = 22; // ارتفاع الباص
-  const scale = isSelected ? 1.15 : 1;
+  // أبعاد نظيفة — نسبة 1.53:1 مثل الأصل
+  const baseW = 36;
+  const baseH = 24;
+  const scale = isSelected ? 1.2 : 1;
   const w = Math.round(baseW * scale);
   const h = Math.round(baseH * scale);
-  const glow = isSelected ? 6 : 0;
 
   const accent = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
-  const shadow = isSelected ? 'rgba(26,115,232,0.4)' : isOnline ? 'rgba(76,175,80,0.2)' : 'rgba(0,0,0,0.05)';
-  const opacity = isOnline ? '1' : '0.6';
+  const opacity = isOnline ? '1' : '0.55';
 
-  // المنطقة الكلية: مربع يحتوي الصورة بعد الدوران (قطر الصورة)
+  // مربع يحتوي الصورة بعد أي دوران (القطر)
   const diagonal = Math.ceil(Math.sqrt(w * w + h * h));
-  const boxSize = diagonal + glow * 2;
+  const pad = isSelected ? 4 : 0;
+  const boxSize = diagonal + pad * 2;
   const totalW = boxSize;
-  const totalH = boxSize + (busNumber ? 16 : 0);
-  const imgOffsetX = (diagonal - w) / 2;
-  const imgOffsetY = (diagonal - h) / 2;
+  const totalH = boxSize + (busNumber ? 15 : 0);
+  const imgLeft = (diagonal - w) / 2;
+  const imgTop = (diagonal - h) / 2;
 
   return L.divIcon({
     className: "bus-marker-icon",
     html: `
       <div style="position:relative;width:${totalW}px;height:${totalH}px;">
-        ${glow > 0 ? `<div style="position:absolute;width:${boxSize}px;height:${boxSize}px;top:0;left:0;border-radius:50%;background:radial-gradient(circle,${shadow} 0%,transparent 70%);${isOnline && !isSelected ? 'animation:busPulse 3s ease-in-out infinite;' : ''}"></div>` : ''}
-        <div style="position:absolute;top:${glow}px;left:${glow}px;width:${diagonal}px;height:${diagonal}px;transform:rotate(${rotation}deg);transform-origin:center center;transition:transform 1s cubic-bezier(0.4,0,0.2,1);cursor:pointer;z-index:10;">
-          <img src="${BUS_ICON_URL}" width="${w}" height="${h}" style="position:absolute;top:${imgOffsetY}px;left:${imgOffsetX}px;display:block;opacity:${opacity};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))${!isOnline ? ' grayscale(0.3)' : ''};" crossorigin="anonymous"/>
+        <div style="position:absolute;top:${pad}px;left:${pad}px;width:${diagonal}px;height:${diagonal}px;transform:rotate(${rotation}deg);transform-origin:center center;transition:transform 0.8s cubic-bezier(0.4,0,0.2,1);cursor:pointer;z-index:10;">
+          <img src="${BUS_ICON_URL}" width="${w}" height="${h}" style="position:absolute;top:${imgTop}px;left:${imgLeft}px;display:block;opacity:${opacity};filter:drop-shadow(1px 2px 3px rgba(0,0,0,0.4))${!isOnline ? ' grayscale(0.4)' : ''};pointer-events:none;" crossorigin="anonymous"/>
         </div>
-        ${isSelected ? `<div style="position:absolute;top:${glow - 2}px;left:${glow - 2}px;width:${diagonal + 4}px;height:${diagonal + 4}px;border:2px solid ${accent};border-radius:50%;opacity:0.45;"></div>` : ''}
-        ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.95);color:#1A1A2E;font-size:8px;font-weight:800;padding:1px 5px;border-radius:5px;white-space:nowrap;z-index:20;box-shadow:0 1px 3px rgba(0,0,0,0.15);border:1px solid ${isOnline ? '#E0E0E0' : '#B0BEC5'};">${busNumber}</div>` : ''}
+        ${isSelected ? `<div style="position:absolute;top:0;left:0;width:${boxSize}px;height:${boxSize}px;border:2px solid ${accent};border-radius:50%;opacity:0.5;pointer-events:none;"></div>` : ''}
+        ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.92);color:#333;font-size:7.5px;font-weight:700;padding:1px 4px;border-radius:4px;white-space:nowrap;z-index:20;box-shadow:0 1px 2px rgba(0,0,0,0.15);border:1px solid #ddd;">${busNumber}</div>` : ''}
       </div>
-      <style>.bus-marker-icon{background:none!important;border:none!important;}@keyframes busPulse{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:.3;transform:scale(1.05)}}</style>
+      <style>.bus-marker-icon{background:none!important;border:none!important;}</style>
     `,
     iconSize: [totalW, totalH],
     iconAnchor: [totalW / 2, boxSize / 2],
-    popupAnchor: [0, -(diagonal / 2) - glow],
+    popupAnchor: [0, -(diagonal / 2)],
   });
 };
 
