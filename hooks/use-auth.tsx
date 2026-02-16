@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // continue
     }
     setUser(null);
-    router.push("/Performance/login");
+    router.push("/login");
   };
 
   return (

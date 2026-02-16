@@ -35,6 +35,9 @@ const getBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
       reports: "التقارير",
       login: "تسجيل الدخول",
       offline: "غير متصل",
+      driver: "لوحة السائق",
+      "driver-assignments": "ربط السائقين",
+      import: "استيراد البيانات",
     };
 
     const label = labelMap[segment] || segment;

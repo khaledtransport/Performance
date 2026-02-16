@@ -134,7 +134,7 @@ export function NavigationBar() {
   const { user, logout } = useAuth();
 
   // إخفاء شريط التنقل في صفحة الدخول
-  if (pathname === "/login" || pathname === "/Performance/login") return null;
+  if (pathname === "/login") return null;
 
   // اختيار القائمة حسب الدور
   const isDriver = user?.role === "DRIVER";

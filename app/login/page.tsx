@@ -62,9 +62,9 @@ export default function LoginPage() {
 
       // توجيه حسب الدور
       if (data.user?.role === "DRIVER") {
-        router.push("/Performance/driver");
+        router.push("/driver");
       } else {
-        router.push("/Performance");
+        router.push("/");
       }
       router.refresh();
     } catch {
