@@ -120,6 +120,27 @@ function calcBearing(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
+function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function normalizeHeading(deg: number): number {
+  return ((deg % 360) + 360) % 360;
+}
+
+function shortestAngleDelta(fromDeg: number, toDeg: number): number {
+  return ((toDeg - fromDeg + 540) % 360) - 180;
+}
+
 // تحريك العلامة بسلاسة من موقع لآخر (Smooth Marker Animation)
 function animateMarker(marker: L.Marker, targetLat: number, targetLng: number, durationMs = 1500) {
   const start = marker.getLatLng();
@@ -149,6 +170,7 @@ export default function MapTracker({
   const routeLinesRef = useRef<L.Polyline[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLocationsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const prevHeadingsRef = useRef<Map<string, number>>(new Map());
   const isFirstRenderRef = useRef(true);
 
   // تهيئة الخريطة
@@ -193,6 +215,8 @@ export default function MapTracker({
       if (!currentIds.has(id)) {
         marker.remove();
         markersRef.current.delete(id);
+        prevLocationsRef.current.delete(id);
+        prevHeadingsRef.current.delete(id);
       }
     });
 
@@ -394,17 +418,44 @@ export default function MapTracker({
       const existing = markersRef.current.get(loc.busId);
       const prev = prevLocationsRef.current.get(loc.busId);
       
-      // حساب الاتجاه: أولاً من GPS الجوال (0° قيمة صحيحة = شمال)
-      // وإذا لم يتوفر/غير صالح نحسبه من النقاط المتتالية
-      let heading =
+      // اتجاه منطقي: نعتمد على حركة المسار أولاً، مع تنعيم الزاوية ومنع القفزات
+      const sensorHeading =
         typeof loc.heading === 'number' && Number.isFinite(loc.heading)
-          ? ((loc.heading % 360) + 360) % 360
+          ? normalizeHeading(loc.heading)
           : null;
-      if (heading == null && prev) {
-        const dist = Math.abs(loc.latitude - prev.lat) + Math.abs(loc.longitude - prev.lng);
-        if (dist > 0.0001) { // بعد كافي لحساب الاتجاه (حوالي 10 متر)
-          heading = calcBearing(prev.lat, prev.lng, loc.latitude, loc.longitude);
+
+      let movementHeading: number | null = null;
+      if (prev) {
+        const movedMeters = distanceMeters(prev.lat, prev.lng, loc.latitude, loc.longitude);
+        if (movedMeters >= 8) {
+          movementHeading = calcBearing(prev.lat, prev.lng, loc.latitude, loc.longitude);
         }
+      }
+
+      const lastStableHeading = prevHeadingsRef.current.get(loc.busId);
+      const speedValue = typeof loc.speed === 'number' && Number.isFinite(loc.speed) ? loc.speed : null;
+
+      let heading: number | null = null;
+      if (movementHeading != null) {
+        heading = movementHeading;
+      } else if (sensorHeading != null && (speedValue == null || speedValue > 2)) {
+        heading = sensorHeading;
+      } else if (lastStableHeading != null) {
+        heading = lastStableHeading;
+      } else {
+        heading = sensorHeading;
+      }
+
+      if (heading != null && lastStableHeading != null) {
+        const delta = shortestAngleDelta(lastStableHeading, heading);
+        const maxStep = 35;
+        if (Math.abs(delta) > maxStep) {
+          heading = normalizeHeading(lastStableHeading + Math.sign(delta) * maxStep);
+        }
+      }
+
+      if (heading != null) {
+        prevHeadingsRef.current.set(loc.busId, heading);
       }
       
       const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, heading, loc.busNumber);
