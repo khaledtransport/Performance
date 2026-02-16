@@ -262,74 +262,7 @@ export default function MapTracker({
     routeLinesRef.current.forEach(line => line.remove());
     routeLinesRef.current = [];
 
-    // رسم خطوط المسارات بين الباصات المتصلة عبر الطرقات الحقيقية
-    const onlineBuses = locations.filter(l => l.isOnline && l.hasLocation !== false);
-    if (onlineBuses.length >= 2) {
-      // الحصول على مسار حقيقي عبر الطرقات باستخدام OSRM
-      const coords = onlineBuses.map(l => `${l.longitude},${l.latitude}`).join(';');
-      fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data?.routes?.[0]?.geometry?.coordinates) {
-            const roadPoints = data.routes[0].geometry.coordinates.map(
-              (c: [number, number]) => [c[1], c[0]] as [number, number]
-            );
-            
-            // خط المسار الخلفي (ظل)
-            const shadowLine = L.polyline(roadPoints, {
-              color: '#000',
-              weight: 8,
-              opacity: 0.08,
-              smoothFactor: 1,
-            }).addTo(map);
-            routeLinesRef.current.push(shadowLine);
-
-            // خط المسار الرئيسي على الطريق
-            const mainLine = L.polyline(roadPoints, {
-              color: '#4285F4',
-              weight: 5,
-              opacity: 0.7,
-              smoothFactor: 1,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }).addTo(map);
-            routeLinesRef.current.push(mainLine);
-
-            // خط متقطع فوق المسار
-            const dashLine = L.polyline(roadPoints, {
-              color: '#1a73e8',
-              weight: 3,
-              opacity: 0.5,
-              smoothFactor: 1,
-              dashArray: '8, 12',
-            }).addTo(map);
-            routeLinesRef.current.push(dashLine);
-          }
-          
-          // نقاط الباصات كمحطات
-          onlineBuses.forEach(bus => {
-            const stationDot = L.circleMarker([bus.latitude, bus.longitude], {
-              radius: 6,
-              fillColor: '#1a73e8',
-              color: 'white',
-              weight: 2.5,
-              fillOpacity: 0.9,
-            }).addTo(map);
-            routeLinesRef.current.push(stationDot as unknown as L.Polyline);
-          });
-        })
-        .catch(() => {
-          // fallback: خط مستقيم إذا فشل OSRM
-          const routePoints = onlineBuses.map(l => [l.latitude, l.longitude] as [number, number]);
-          const fallbackLine = L.polyline(routePoints, {
-            color: '#1a73e8',
-            weight: 4,
-            opacity: 0.5,
-            dashArray: '10, 8',
-          }).addTo(map);
-          routeLinesRef.current.push(fallbackLine);
-        });
-    }
+    // تم تعطيل رسم مسار جميع الباصات عبر OSRM لتقليل التأخير وتحسين سلاسة التحديث الحي.
 
     // إذا تم اختيار باص، جلب وعرض مساره السابق مطابق للطرقات
     if (selectedBus) {
@@ -502,7 +435,7 @@ export default function MapTracker({
                 let refinedHeading = roadHeading ?? stable ?? null;
                 if (refinedHeading != null && stable != null) {
                   const delta = shortestAngleDelta(stable, refinedHeading);
-                  const maxStep = 20;
+                  const maxStep = 120;
                   if (Math.abs(delta) > maxStep) {
                     refinedHeading = normalizeHeading(stable + Math.sign(delta) * maxStep);
                   }
@@ -519,11 +452,10 @@ export default function MapTracker({
                     ? continuousRotation(prevIconRotation, refinedTargetRotation)
                     : prevIconRotation ?? 0;
 
-                if (refinedTargetRotation != null) {
-                  prevIconRotationsRef.current.set(loc.busId, refinedIconRotation);
-                }
-
-                const snappedRefinedRotation = snapToFourDirections(refinedIconRotation);
+                const snappedRefinedRotation = refinedTargetRotation != null
+                  ? snapToFourDirections(refinedTargetRotation)
+                  : snapToFourDirections(refinedIconRotation);
+                prevIconRotationsRef.current.set(loc.busId, snappedRefinedRotation);
                 marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, snappedRefinedRotation, loc.busNumber));
               }
             })
@@ -596,11 +528,10 @@ export default function MapTracker({
           ? continuousRotation(prevIconRotation, targetRotation)
           : prevIconRotation ?? 0;
 
-      if (targetRotation != null) {
-        prevIconRotationsRef.current.set(loc.busId, iconRotation);
-      }
-
-      const snappedIconRotation = snapToFourDirections(iconRotation);
+      const snappedIconRotation = targetRotation != null
+        ? snapToFourDirections(targetRotation)
+        : snapToFourDirections(iconRotation);
+      prevIconRotationsRef.current.set(loc.busId, snappedIconRotation);
       const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, snappedIconRotation, loc.busNumber);
 
       const timeDiff = Math.floor((Date.now() - new Date(loc.lastUpdate).getTime()) / 1000);

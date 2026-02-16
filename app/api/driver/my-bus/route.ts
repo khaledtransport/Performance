@@ -56,6 +56,31 @@ export async function GET() {
     const activeAssignment = driver.assignments[0];
 
     if (!activeAssignment) {
+      // fallback: حاول جلب الباص من المسار النشط للسائق
+      const activeRoute = await prisma.route.findFirst({
+        where: { driverId: driver.id, isActive: true },
+        orderBy: { updatedAt: "desc" },
+        include: {
+          bus: {
+            include: {
+              districts: { include: { district: true } },
+            },
+          },
+        },
+      });
+
+      if (activeRoute?.bus) {
+        return NextResponse.json({
+          driver: { id: driver.id, name: driver.name },
+          assignedBus: {
+            id: activeRoute.bus.id,
+            busNumber: activeRoute.bus.busNumber,
+            district: activeRoute.bus.districts[0]?.district?.name || "غير محدد",
+          },
+          availableBuses: [],
+        });
+      }
+
       // السائق مربوط لكن بدون باص مخصص حالياً
       const buses = await prisma.bus.findMany({
         where: { isActive: true },
