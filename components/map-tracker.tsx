@@ -431,7 +431,7 @@ export default function MapTracker({
                   ? snapToEightDirections(refinedHeading)
                   : (prevDirectionRef.current.get(loc.busId) ?? 0);
                 prevDirectionRef.current.set(loc.busId, newDirection);
-                marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, refinedHeading, loc.busNumber));
+                marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, newDirection, loc.busNumber));
               }
             })
             .catch(() => {})
@@ -500,7 +500,7 @@ export default function MapTracker({
         ? snapToEightDirections(heading)
         : (prevDirectionRef.current.get(loc.busId) ?? 0);
       prevDirectionRef.current.set(loc.busId, currentDirection);
-      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, heading, loc.busNumber);
+      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, currentDirection, loc.busNumber);
 
       const timeDiff = Math.floor((Date.now() - new Date(loc.lastUpdate).getTime()) / 1000);
       const timeAgo = timeDiff < 60 ? `${timeDiff} ثانية` : timeDiff < 3600 ? `${Math.floor(timeDiff/60)} دقيقة` : `${Math.floor(timeDiff/3600)} ساعة`;
