@@ -317,7 +317,7 @@ export async function PATCH(request: Request) {
     }
 
     // action === "start"
-    const existing = await prisma.trackingSession.findFirst({
+    const activeSessions = await prisma.trackingSession.findMany({
       where: {
         busId,
         status: "ACTIVE",
@@ -326,6 +326,20 @@ export async function PATCH(request: Request) {
       orderBy: { lastPointAt: "desc" },
       select: { id: true },
     });
+
+    const existing = activeSessions[0];
+
+    if (activeSessions.length > 1) {
+      const duplicateSessionIds = activeSessions.slice(1).map((s) => s.id);
+      await prisma.trackingSession.updateMany({
+        where: { id: { in: duplicateSessionIds } },
+        data: {
+          status: "ENDED",
+          endedAt: now,
+          lastPointAt: now,
+        },
+      });
+    }
 
     if (!existing) {
       const activeRoute = await prisma.route.findFirst({
@@ -405,10 +419,20 @@ export async function POST(request: Request) {
         select: { id: true },
       });
 
-      let session = await tx.trackingSession.findFirst({
+      const activeSessions = await tx.trackingSession.findMany({
         where: { busId, status: "ACTIVE", endedAt: null },
         orderBy: { lastPointAt: "desc" },
       });
+
+      let session = activeSessions[0] ?? null;
+
+      if (activeSessions.length > 1) {
+        const duplicateSessionIds = activeSessions.slice(1).map((s) => s.id);
+        await tx.trackingSession.updateMany({
+          where: { id: { in: duplicateSessionIds } },
+          data: { status: "ENDED", endedAt: now, lastPointAt: now },
+        });
+      }
 
       // إذا كانت آخر نقطة قديمة (30 دقيقة) نغلق الجلسة ونبدأ جلسة جديدة
       if (session) {
