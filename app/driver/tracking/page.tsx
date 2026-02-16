@@ -50,6 +50,16 @@ interface FullPosition {
   accuracy: number | null;
 }
 
+// حساب المسافة بين نقطتين باستخدام صيغة Haversine (بالمتر)
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000; // نصف قطر الأرض بالمتر
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export default function DriverTrackingPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -71,6 +81,8 @@ export default function DriverTrackingPage() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [sendCount, setSendCount] = useState(0);
+  const [totalDistance, setTotalDistance] = useState(0); // المسافة الكلية بالمتر
+  const [calculatedSpeed, setCalculatedSpeed] = useState<number | null>(null); // سرعة محسوبة كم/س
   const [permissionStatus, setPermissionStatus] = useState<string>("checking");
   // "checking" | "granted" | "denied" | "prompt" | "unsupported"
   const [gpsQuality, setGpsQuality] = useState<"excellent" | "good" | "poor" | "cell-tower" | "unknown">("unknown");
@@ -81,6 +93,8 @@ export default function DriverTrackingPage() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastPositionRef = useRef<FullPosition | null>(null);
   const bestPositionRef = useRef<FullPosition | null>(null);
+  const prevGpsPositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+  const calculatedSpeedRef = useRef<number | null>(null);
   const isTrackingRef = useRef(false);
   const selectedBusIdRef = useRef<string>("");
   const gpsRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -263,7 +277,11 @@ export default function DriverTrackingPage() {
             busId: selectedBusId,
             latitude: posToSend.lat,
             longitude: posToSend.lng,
-            speed: posToSend.speed !== null ? (posToSend.speed * 3.6).toFixed(1) : "0",
+            speed: calculatedSpeedRef.current !== null
+              ? calculatedSpeedRef.current.toFixed(1)
+              : posToSend.speed !== null
+                ? (posToSend.speed * 3.6).toFixed(1)
+                : "0",
             heading: posToSend.heading !== null ? posToSend.heading.toFixed(0) : null,
             accuracy: posToSend.accuracy !== null ? posToSend.accuracy.toFixed(0) : null,
           }),
@@ -355,6 +373,10 @@ export default function DriverTrackingPage() {
     setGpsError(null);
     setIsTracking(true);
     setSendCount(0);
+    setTotalDistance(0);
+    setCalculatedSpeed(null);
+    calculatedSpeedRef.current = null;
+    prevGpsPositionRef.current = null;
     void setTrackingStatus("start");
     if (typeof window !== "undefined") {
       localStorage.removeItem(getPendingStopKey(selectedBusId));
@@ -384,6 +406,27 @@ export default function DriverTrackingPage() {
 
         // تصنيف جودة GPS
         const quality = classifyGpsQuality(acc);
+
+        // حساب المسافة والسرعة من تغير الموقع (فقط إذا الدقة جيدة < 300م)
+        if (quality !== "cell-tower" && quality !== "unknown") {
+          const now = Date.now();
+          const prev = prevGpsPositionRef.current;
+          if (prev) {
+            const dist = haversineDistance(prev.lat, prev.lng, lat, lng);
+            const timeDiffSec = (now - prev.time) / 1000;
+            // تجاهل القفزات الكبيرة (خطأ GPS) أو الصغيرة جداً (ضجيج)
+            if (dist >= 3 && dist < 1000 && timeDiffSec > 0) {
+              setTotalDistance(d => d + dist);
+              // حساب السرعة من المسافة/الوقت (كم/س)
+              const spdCalc = (dist / timeDiffSec) * 3.6;
+              if (spdCalc < 200) { // تجاهل سرعات غير واقعية
+                setCalculatedSpeed(spdCalc);
+                calculatedSpeedRef.current = spdCalc;
+              }
+            }
+          }
+          prevGpsPositionRef.current = { lat, lng, time: now };
+        }
         setGpsQuality(quality);
 
         // حفظ كامل البيانات في المرجع
@@ -412,6 +455,26 @@ export default function DriverTrackingPage() {
                   setHeading(coords.heading);
                   setAccuracy(coords.accuracy);
                   setGpsQuality(newQuality);
+
+                  // حساب المسافة والسرعة (نفس المنطق الأصلي)
+                  if (newQuality !== "cell-tower" && newQuality !== "unknown") {
+                    const now2 = Date.now();
+                    const prev2 = prevGpsPositionRef.current;
+                    if (prev2) {
+                      const dist2 = haversineDistance(prev2.lat, prev2.lng, coords.latitude, coords.longitude);
+                      const td2 = (now2 - prev2.time) / 1000;
+                      if (dist2 >= 3 && dist2 < 1000 && td2 > 0) {
+                        setTotalDistance(d => d + dist2);
+                        const sc2 = (dist2 / td2) * 3.6;
+                        if (sc2 < 200) {
+                          setCalculatedSpeed(sc2);
+                          calculatedSpeedRef.current = sc2;
+                        }
+                      }
+                    }
+                    prevGpsPositionRef.current = { lat: coords.latitude, lng: coords.longitude, time: now2 };
+                  }
+
                   const fp: FullPosition = {
                     lat: coords.latitude, lng: coords.longitude,
                     speed: coords.speed, heading: coords.heading, accuracy: coords.accuracy
@@ -920,7 +983,20 @@ export default function DriverTrackingPage() {
                   <Gauge className="w-5 h-5 mx-auto text-green-500 mb-1" />
                   <p className="text-xs text-gray-500">السرعة</p>
                   <p className="font-mono font-bold text-sm">
-                    {speed !== null ? `${(speed * 3.6).toFixed(0)} كم/س` : "—"}
+                    {calculatedSpeed !== null
+                      ? `${calculatedSpeed.toFixed(0)} كم/س`
+                      : speed !== null
+                        ? `${(speed * 3.6).toFixed(0)} كم/س`
+                        : "0 كم/س"}
+                  </p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
+                  <Navigation className="w-5 h-5 mx-auto text-teal-500 mb-1" />
+                  <p className="text-xs text-gray-500">المسافة</p>
+                  <p className="font-mono font-bold text-sm">
+                    {totalDistance >= 1000
+                      ? `${(totalDistance / 1000).toFixed(1)} كم`
+                      : `${totalDistance.toFixed(0)} م`}
                   </p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
