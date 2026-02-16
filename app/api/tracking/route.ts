@@ -237,10 +237,6 @@ export async function POST(request: Request) {
         : null;
     const parsedAccuracy = accuracy ? parseFloat(accuracy) : null;
 
-    // تجاهل مواقع أبراج الشبكة (دقة > 500م) - فقط إبقاء الجلسة نشطة
-    const shouldIgnoreLowAccuracy =
-      parsedAccuracy !== null && Number.isFinite(parsedAccuracy) && parsedAccuracy > 500;
-
     const location = await prisma.$transaction(async (tx) => {
       const now = new Date();
 
@@ -279,18 +275,6 @@ export async function POST(request: Request) {
             source: "DRIVER_APP",
           },
         });
-      }
-
-      if (shouldIgnoreLowAccuracy) {
-        await tx.trackingSession.update({
-          where: { id: session.id },
-          data: {
-            lastPointAt: now,
-            routeId: session.routeId ?? activeRoute?.id ?? null,
-          },
-        });
-
-        return null;
       }
 
       // حفظ متوافق مع النظام الحالي
@@ -332,17 +316,6 @@ export async function POST(request: Request) {
 
     // إبطال كاش التتبع عند تحديث الموقع
     apiCache.delete("tracking:all");
-
-    if (!location) {
-      return NextResponse.json(
-        {
-          ignored: true,
-          reason: "LOW_ACCURACY",
-          accuracy: parsedAccuracy,
-        },
-        { status: 202 }
-      );
-    }
 
     // حذف المواقع القديمة (أكثر من 24 ساعة) — بشكل غير متزامن
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);

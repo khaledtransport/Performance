@@ -243,15 +243,9 @@ export default function DriverTrackingPage() {
           }),
         });
 
-        if (res.ok || res.status === 202) {
+        if (res.ok) {
           setSendCount((prev) => prev + 1);
           setLastUpdate(new Date());
-          if (res.status === 202) {
-            const data = await res.json().catch(() => ({}));
-            if (data.accuracy) {
-              setGpsError(`⚠️ دقة GPS ضعيفة (${Math.round(data.accuracy)}م) – الموقع لا يُحفظ حتى تتحسن الدقة`);
-            }
-          }
         } else {
           const errData = await res.json().catch(() => ({}));
           console.error("Failed to send location:", errData);
@@ -345,12 +339,10 @@ export default function DriverTrackingPage() {
       description: "يتم إرسال موقعك كل 10 ثوانٍ",
     });
 
-    // --- حدود الدقة ---
-    const GOOD_ACCURACY = 500; // أقل من 500م = GPS حقيقي
     let lastGpsTime = 0;
 
-    // استقبال موقع GPS حقيقي (دقة جيدة)
-    const onGoodPosition = (position: GeolocationPosition) => {
+    // استقبال أي موقع وتحديث العرض + الإرسال
+    const onPosition = (position: GeolocationPosition) => {
       const { latitude: lat, longitude: lng } = position.coords;
       const spd = position.coords.speed;
       const hdg = position.coords.heading;
@@ -361,35 +353,15 @@ export default function DriverTrackingPage() {
       setSpeed(spd);
       setHeading(hdg);
       setAccuracy(acc);
-      setGpsError(null);
       setPermissionStatus("granted");
 
       lastGpsTime = Date.now();
       lastPositionRef.current = { lat, lng, speed: spd, heading: hdg, accuracy: acc };
-    };
 
-    // فحص الموقع الوارد - قبول الدقيق فقط للعرض
-    const onPosition = (position: GeolocationPosition) => {
-      const acc = position.coords.accuracy;
-      setPermissionStatus("granted");
-
-      if (acc !== null && acc <= GOOD_ACCURACY) {
-        // موقع GPS حقيقي - تحديث كل شيء
-        onGoodPosition(position);
+      if (acc !== null && acc > 500) {
+        setGpsError(`⚠️ دقة الموقع (${Math.round(acc)}م) — الموقع تقريبي\nفعّل GPS من إعدادات الجوال لدقة أعلى`);
       } else {
-        // موقع برج شبكة/WiFi - إرسال للسيرفر فقط لإبقاء الجلسة نشطة
-        // لا نحدّث الإحداثيات المعروضة
-        setAccuracy(acc);
-        const keepAlivePos: FullPosition = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          speed: position.coords.speed,
-          heading: position.coords.heading,
-          accuracy: acc,
-        };
-        // إرسال للسيرفر للحفاظ على الجلسة نشطة (السيرفر لن يحفظه كموقع)
-        sendLocation(keepAlivePos);
-        setGpsError(`⚠️ دقة الموقع ضعيفة (${acc ? Math.round(acc) : '?'}م) — في انتظار إشارة GPS أقوى...\nتأكد من تفعيل GPS وأنك في مكان مفتوح`);
+        setGpsError(null);
       }
     };
 
