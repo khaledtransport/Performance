@@ -4,11 +4,20 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// إضافة حدود اتصال مناسبة لـ serverless (Vercel + Supabase pgbouncer)
-const dbUrl = process.env.DATABASE_URL || '';
-const pooledUrl = dbUrl.includes('connection_limit=')
-  ? dbUrl
-  : dbUrl + (dbUrl.includes('?') ? '&' : '?') + 'connection_limit=3&pool_timeout=15';
+// استخدام الاتصال المباشر (DIRECT_URL) بدلاً من pgbouncer المعطل
+// مع حد اتصال واحد فقط لكل serverless function لتجنب استنزاف الاتصالات
+function buildConnectionUrl(): string {
+  // تفضيل DIRECT_URL لأن pgbouncer قد يكون مشغولاً
+  const baseUrl = process.env.DIRECT_URL || process.env.DATABASE_URL || '';
+  if (!baseUrl) return '';
+  
+  const separator = baseUrl.includes('?') ? '&' : '?';
+  const params = 'connection_limit=1&pool_timeout=20&connect_timeout=10';
+  
+  return baseUrl.includes('connection_limit=') ? baseUrl : baseUrl + separator + params;
+}
+
+const connectionUrl = buildConnectionUrl();
 
 export const prisma =
   globalForPrisma.prisma ??
@@ -23,7 +32,7 @@ export const prisma =
         : [{ emit: "stdout", level: "error" }], // في الإنتاج: فقط الأخطاء
     datasources: {
       db: {
-        url: pooledUrl,
+        url: connectionUrl,
       },
     },
   });
