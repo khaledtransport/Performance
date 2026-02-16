@@ -139,6 +139,36 @@ html {
   animation: scale-in 0.3s ease-out;
 }
 
+/* Banner shrink animation */
+@keyframes shrink-width {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-shrink-width {
+  animation: shrink-width linear forwards;
+}
+
+/* Notification slide in */
+@keyframes slide-in-from-top {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in.slide-in-from-top {
+  animation: slide-in-from-top 0.3s ease-out;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
