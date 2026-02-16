@@ -46,38 +46,38 @@ const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number 
   const direction = heading != null && Number.isFinite(heading) ? snapToEightDirections(heading) : 0;
   const iconUrl = getBusIconUrl(direction);
 
-  // حجم الأيقونة — مقياس مناسب للخريطة
-  const scale = isSelected ? 1.25 : 1;
-  const w = Math.round(48 * scale);
-  const h = Math.round(56 * scale);
+  // حجم أيقونة مصغّر ومناسب — أصغر وأنظف على الخريطة
+  const scale = isSelected ? 1.2 : 1;
+  const w = Math.round(32 * scale);
+  const h = Math.round(38 * scale);
 
   const accent = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
-  const opacity = isOnline ? '1' : '0.5';
-  const totalW = w + 12;
-  const totalH = h + (busNumber ? 16 : 4);
-  const glowColor = isOnline ? 'rgba(22,163,74,0.6)' : 'rgba(120,120,120,0.2)';
+  const opacity = isOnline ? '1' : '0.45';
+  const totalW = w + 8;
+  const totalH = h + (busNumber ? 14 : 2);
+  const glowColor = isOnline ? 'rgba(22,163,74,0.5)' : 'rgba(120,120,120,0.15)';
 
   return L.divIcon({
     className: "bus-marker-icon",
     html: `
       <div style="position:relative;width:${totalW}px;height:${totalH}px;overflow:visible;">
-        ${isOnline ? `<div style="position:absolute;left:${totalW / 2 - 22}px;top:${h - 6}px;width:44px;height:14px;border-radius:999px;background:radial-gradient(ellipse at center, ${glowColor} 0%, rgba(22,163,74,0.28) 52%, rgba(22,163,74,0) 100%);filter:blur(1.5px);animation:busGlow 1.3s ease-in-out infinite;z-index:2;pointer-events:none;"></div>` : ''}
-        <div style="position:absolute;top:2px;left:${(totalW - w) / 2}px;width:${w}px;height:${h}px;cursor:pointer;z-index:10;transition:transform 0.3s ease;">
-          <img src="${iconUrl}" width="${w}" height="${h}" style="display:block;opacity:${opacity};filter:drop-shadow(1px 2px 4px rgba(0,0,0,0.35))${!isOnline ? ' grayscale(0.5)' : ''};pointer-events:none;object-fit:contain;" />
+        ${isOnline ? `<div style="position:absolute;left:${totalW / 2 - 14}px;top:${h - 4}px;width:28px;height:9px;border-radius:999px;background:radial-gradient(ellipse at center, ${glowColor} 0%, rgba(22,163,74,0.2) 55%, rgba(22,163,74,0) 100%);filter:blur(1px);animation:busGlow 1.5s ease-in-out infinite;z-index:2;pointer-events:none;"></div>` : ''}
+        <div style="position:absolute;top:1px;left:${(totalW - w) / 2}px;width:${w}px;height:${h}px;cursor:pointer;z-index:10;">
+          <img src="${iconUrl}" width="${w}" height="${h}" style="display:block;opacity:${opacity};filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3))${!isOnline ? ' grayscale(0.5)' : ''};pointer-events:none;object-fit:contain;" />
         </div>
-        ${isSelected ? `<div style="position:absolute;top:0;left:${(totalW - w - 8) / 2}px;width:${w + 8}px;height:${h + 4}px;border:2px solid ${accent};border-radius:10px;opacity:0.5;pointer-events:none;"></div>` : ''}
-        ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.93);color:#333;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;white-space:nowrap;z-index:20;box-shadow:0 1px 3px rgba(0,0,0,0.15);border:1px solid #ddd;">${busNumber}</div>` : ''}
+        ${isSelected ? `<div style="position:absolute;top:-1px;left:${(totalW - w - 6) / 2}px;width:${w + 6}px;height:${h + 3}px;border:2px solid ${accent};border-radius:8px;opacity:0.5;pointer-events:none;"></div>` : ''}
+        ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.92);color:#333;font-size:7px;font-weight:700;padding:0.5px 4px;border-radius:3px;white-space:nowrap;z-index:20;box-shadow:0 1px 2px rgba(0,0,0,0.12);border:1px solid #e0e0e0;">${busNumber}</div>` : ''}
       </div>
       <style>
         .bus-marker-icon{background:none!important;border:none!important;}
         @keyframes busGlow {
-          0%, 100% { transform: scale(0.92); opacity: 0.62; }
-          50% { transform: scale(1.18); opacity: 1; }
+          0%, 100% { transform: scale(0.9); opacity: 0.55; }
+          50% { transform: scale(1.12); opacity: 0.9; }
         }
       </style>
     `,
     iconSize: [totalW, totalH],
-    iconAnchor: [totalW / 2, h / 2 + 2],
+    iconAnchor: [totalW / 2, h / 2 + 1],
     popupAnchor: [0, -(h / 2)],
   });
 };
@@ -377,7 +377,8 @@ export default function MapTracker({
       const accuracyValue = typeof loc.accuracy === 'number' && Number.isFinite(loc.accuracy) ? loc.accuracy : null;
       if (loc.isOnline && prev && !roadSnapInFlightRef.current.has(loc.busId)) {
         const movedMeters = distanceMeters(prev.lat, prev.lng, loc.latitude, loc.longitude);
-        const shouldSnap = movedMeters >= 20 && (speedValue ?? 0) >= 12 && (accuracyValue == null || accuracyValue > 35);
+        // شروط مطابقة أكثر صرامة لتقليل طلبات OSRM وتسريع الأداء
+        const shouldSnap = movedMeters >= 30 && (speedValue ?? 0) >= 15 && (accuracyValue == null || accuracyValue > 40);
         if (shouldSnap) {
           roadSnapInFlightRef.current.add(loc.busId);
           const coords = `${prev.lng},${prev.lat};${loc.longitude},${loc.latitude}`;
@@ -456,7 +457,8 @@ export default function MapTracker({
       let movedMetersSinceLast = 0;
       if (prev) {
         movedMetersSinceLast = distanceMeters(prev.lat, prev.lng, loc.latitude, loc.longitude);
-        if (movedMetersSinceLast >= 8) {
+        // حد أدنى 15م للحركة لتجنب اهتزاز الاتجاه من انحراف GPS
+        if (movedMetersSinceLast >= 15) {
           movementHeading = calcBearing(prev.lat, prev.lng, loc.latitude, loc.longitude);
         }
       }
@@ -485,8 +487,9 @@ export default function MapTracker({
 
       if (heading != null && lastStableHeading != null) {
         const delta = shortestAngleDelta(lastStableHeading, heading);
-        const isUTurnLike = Math.abs(delta) >= 120 && movedMetersSinceLast >= 8;
-        const maxStep = isUTurnLike ? 180 : 70;
+        const isUTurnLike = Math.abs(delta) >= 120 && movedMetersSinceLast >= 25;
+        // خطوة أقصى 45° لمنع الدوران المفاجئ يمين/يسار
+        const maxStep = isUTurnLike ? 160 : 45;
         if (Math.abs(delta) > maxStep) {
           heading = normalizeHeading(lastStableHeading + Math.sign(delta) * maxStep);
         }
@@ -496,9 +499,15 @@ export default function MapTracker({
         prevHeadingsRef.current.set(loc.busId, heading);
       }
 
-      const currentDirection = heading != null
+      // منع تبديل الاتجاه إلا إذا تحرك الباص فعلياً (هستيرية اتجاهية)
+      const candidateDirection = heading != null
         ? snapToEightDirections(heading)
         : (prevDirectionRef.current.get(loc.busId) ?? 0);
+      const lastDirection = prevDirectionRef.current.get(loc.busId);
+      // لا تغيّر صورة الاتجاه إلا إذا الباص تحرك 15م على الأقل أو لا يوجد اتجاه سابق
+      const currentDirection = (lastDirection != null && movedMetersSinceLast < 15)
+        ? lastDirection
+        : candidateDirection;
       prevDirectionRef.current.set(loc.busId, currentDirection);
       const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, currentDirection, loc.busNumber);
 
@@ -517,7 +526,7 @@ export default function MapTracker({
               display: flex; align-items: center; justify-content: center;
               box-shadow: 0 2px 8px rgba(249,168,37,0.3);
             ">
-              <img src="${getBusIconUrl(0)}" width="28" height="34" style="display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2));object-fit:contain;" />
+              <img src="${getBusIconUrl(0)}" width="22" height="26" style="display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2));object-fit:contain;" />
             </div>
             <div>
               <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #0f172a;">باص ${loc.busNumber}</h3>
