@@ -56,14 +56,15 @@ const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number 
   const totalH = boxSize + (busNumber ? 15 : 0);
   const imgLeft = (diagonal - w) / 2;
   const imgTop = (diagonal - h) / 2;
-  const glowColor = isOnline ? 'rgba(34,197,94,0.45)' : 'rgba(120,120,120,0.2)';
+  const glowColor = isOnline ? 'rgba(22,163,74,0.6)' : 'rgba(120,120,120,0.2)';
   const glowScale = isSelected ? 1.2 : 1;
 
   return L.divIcon({
     className: "bus-marker-icon",
     html: `
-      <div style="position:relative;width:${totalW}px;height:${totalH}px;">
-        ${isOnline ? `<div style="position:absolute;left:${pad + diagonal / 2 - 14 * glowScale}px;top:${pad + diagonal / 2 + 2}px;width:${28 * glowScale}px;height:${9 * glowScale}px;border-radius:50%;background:${glowColor};filter:blur(1.8px);animation:busPulse 1.6s ease-in-out infinite;z-index:1;pointer-events:none;"></div>` : ''}
+      <div style="position:relative;width:${totalW}px;height:${totalH}px;overflow:visible;">
+        ${isOnline ? `<div style="position:absolute;left:${pad + diagonal / 2 - 22 * glowScale}px;top:${pad + diagonal / 2 + 3}px;width:${44 * glowScale}px;height:${15 * glowScale}px;border-radius:999px;background:radial-gradient(ellipse at center, ${glowColor} 0%, rgba(22,163,74,0.28) 52%, rgba(22,163,74,0) 100%);filter:blur(1.2px);animation:busGlow 1.3s ease-in-out infinite;z-index:2;pointer-events:none;"></div>` : ''}
+        ${isOnline ? `<div style="position:absolute;left:${pad + diagonal / 2 - 4}px;top:${pad + diagonal / 2 + 6}px;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,0.2),0 0 12px rgba(34,197,94,0.75);z-index:3;pointer-events:none;"></div>` : ''}
         <div style="position:absolute;top:${pad}px;left:${pad}px;width:${diagonal}px;height:${diagonal}px;transform:rotate(${rotation}deg);transform-origin:center center;transition:transform 0.8s cubic-bezier(0.4,0,0.2,1);cursor:pointer;z-index:10;">
           <img src="${BUS_ICON_URL}" width="${w}" height="${h}" style="position:absolute;top:${imgTop}px;left:${imgLeft}px;display:block;opacity:${opacity};filter:drop-shadow(1px 2px 3px rgba(0,0,0,0.4))${!isOnline ? ' grayscale(0.4)' : ''};pointer-events:none;" crossorigin="anonymous"/>
         </div>
@@ -72,9 +73,9 @@ const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number 
       </div>
       <style>
         .bus-marker-icon{background:none!important;border:none!important;}
-        @keyframes busPulse {
-          0%, 100% { transform: scale(0.95); opacity: 0.5; }
-          50% { transform: scale(1.18); opacity: 0.95; }
+        @keyframes busGlow {
+          0%, 100% { transform: scale(0.92); opacity: 0.62; }
+          50% { transform: scale(1.18); opacity: 1; }
         }
       </style>
     `,
@@ -184,7 +185,7 @@ export default function MapTracker({
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLocationsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
   const prevHeadingsRef = useRef<Map<string, number>>(new Map());
-  const roadSnapRef = useRef<Map<string, { lat: number; lng: number; heading: number | null; updatedAt: number }>>(new Map());
+  const roadSnapRef = useRef<Map<string, { heading: number | null; updatedAt: number }>>(new Map());
   const roadSnapInFlightRef = useRef<Set<string>>(new Set());
   const isFirstRenderRef = useRef(true);
 
@@ -471,20 +472,12 @@ export default function MapTracker({
               }
 
               roadSnapRef.current.set(loc.busId, {
-                lat: snappedLat,
-                lng: snappedLng,
                 heading: roadHeading,
                 updatedAt: Date.now(),
               });
 
               const marker = markersRef.current.get(loc.busId);
               if (marker) {
-                const markerPos = marker.getLatLng();
-                const snapDist = distanceMeters(markerPos.lat, markerPos.lng, snappedLat, snappedLng);
-                if (snapDist > 2) {
-                  animateMarker(marker, snappedLat, snappedLng, 900);
-                }
-
                 const stable = prevHeadingsRef.current.get(loc.busId);
                 let refinedHeading = roadHeading ?? stable ?? null;
                 if (refinedHeading != null && stable != null) {
@@ -511,9 +504,8 @@ export default function MapTracker({
 
       const roadSnap = roadSnapRef.current.get(loc.busId);
       const hasFreshRoadSnap = !!roadSnap && now - roadSnap.updatedAt <= 9000;
-      const canUseSnapPosition = hasFreshRoadSnap && (accuracyValue == null || accuracyValue > 35);
-      const displayLat = canUseSnapPosition ? (loc.latitude * 0.7 + roadSnap!.lat * 0.3) : loc.latitude;
-      const displayLng = canUseSnapPosition ? (loc.longitude * 0.7 + roadSnap!.lng * 0.3) : loc.longitude;
+      const displayLat = loc.latitude;
+      const displayLng = loc.longitude;
       
       // اتجاه منطقي: نعتمد على حركة المسار أولاً، مع تنعيم الزاوية ومنع القفزات
       const sensorHeading =
