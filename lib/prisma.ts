@@ -7,18 +7,26 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: [
-      { emit: "event", level: "query" },
-      { emit: "stdout", level: "error" },
-      { emit: "stdout", level: "warn" },
-    ],
+    log:
+      process.env.NODE_ENV === "development"
+        ? [
+            { emit: "event", level: "query" },
+            { emit: "stdout", level: "error" },
+            { emit: "stdout", level: "warn" },
+          ]
+        : [{ emit: "stdout", level: "error" }], // في الإنتاج: فقط الأخطاء
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
   });
 
-// Add middleware for performance monitoring
+// مراقبة الاستعلامات البطيئة في التطوير فقط
 if (process.env.NODE_ENV === "development") {
-  prisma.$on("query", (e) => {
-    if (e.duration > 1000) {
-      console.warn(`⚠️ Slow query (${e.duration}ms): ${e.query}`);
+  prisma.$on("query" as never, (e: { duration: number; query: string }) => {
+    if (e.duration > 500) {
+      console.warn(`⚠️ Slow query (${e.duration}ms): ${e.query.substring(0, 100)}`);
     }
   });
 }

@@ -23,278 +23,65 @@ interface MapTrackerProps {
   onSelectBus: (busId: string) => void;
 }
 
-// أيقونة ميني فان UberXL — منظور 3/4 isometric (v4 - محسّن للحجم الصغير)
+// أيقونة باص نظيفة v5 — حجم مناسب للخريطة (32×44px)
+// ★ لاستبدال الأيقونة بتصميمك: ضع ملف PNG بالمسار /public/icons/bus-marker.png بأبعاد 64×88 بكسل
+// ★ الأيقونة يجب أن تكون موجهة للأعلى (شمال = 0°)، النظام يدور الأيقونة تلقائياً حسب اتجاه الجوال
 const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
-  const rotation = heading != null && heading > 0 ? heading : 0;
-  const scale = isSelected ? 1.2 : 1;
-  const w = Math.round(80 * scale);
-  const h = Math.round(67 * scale);
-  
-  // ألوان — أبيض نظيف مع تباين عالي
-  const bodyWhite   = isOnline ? '#FFFFFF' : '#B0BEC5';
-  const bodyLight   = isOnline ? '#F5F5F5' : '#9EB0BA';
-  const bodyMid     = isOnline ? '#E8E8E8' : '#8A9DAA';
-  const bodySide    = isOnline ? '#D0D0D0' : '#7A8E9A';
-  const bodyBottom  = isOnline ? '#BABABA' : '#6A808C';
-  const glassLight  = isOnline ? '#5A6A7A' : '#7A8A94';
-  const glassDark   = isOnline ? '#2A3444' : '#5A6A74';
-  const wheelOuter  = '#0A0A0A';
-  const wheelMid    = '#1A1A1A';
-  const wheelInner  = '#3A3A3A';
-  const ledStrip    = isOnline ? '#FFFFFF' : '#9E9E9E';
-  const rearLight   = isOnline ? '#FF7700' : '#90A4AE';
-  const mirrorDark  = isOnline ? '#2A2A2A' : '#5A6A74';
-  const accentColor = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
-  const shadowColor = isSelected ? 'rgba(26,115,232,0.4)' : isOnline ? 'rgba(76,175,80,0.2)' : 'rgba(0,0,0,0.06)';
-  const glowSize    = isSelected ? 22 : isOnline ? 12 : 0;
-  const uid = `m${isOnline ? '1' : '0'}${isSelected ? 's' : 'n'}`;
-  
-  const svgCar = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" width="${w}" height="${h}">
-      <defs>
-        <linearGradient id="bd${uid}" x1="0" y1="0" x2="0.7" y2="1">
-          <stop offset="0%" stop-color="${bodyWhite}"/>
-          <stop offset="100%" stop-color="${bodyMid}"/>
-        </linearGradient>
-        <linearGradient id="sd${uid}" x1="0" y1="0" x2="1" y2="0.6">
-          <stop offset="0%" stop-color="${bodySide}"/>
-          <stop offset="100%" stop-color="${bodyBottom}"/>
-        </linearGradient>
-        <linearGradient id="gd${uid}" x1="0.2" y1="0" x2="0.8" y2="1">
-          <stop offset="0%" stop-color="${glassLight}"/>
-          <stop offset="100%" stop-color="${glassDark}"/>
-        </linearGradient>
-        <radialGradient id="wh${uid}">
-          <stop offset="0%" stop-color="${wheelInner}"/>
-          <stop offset="50%" stop-color="${wheelMid}"/>
-          <stop offset="100%" stop-color="${wheelOuter}"/>
-        </radialGradient>
-        <filter id="ds${uid}" x="-5%" y="-5%" width="115%" height="120%">
-          <feDropShadow dx="1" dy="3" stdDeviation="2" flood-color="rgba(0,0,0,0.22)"/>
-        </filter>
-        <filter id="lg${uid}">
-          <feGaussianBlur stdDeviation="1.2"/>
-        </filter>
-      </defs>
+  // heading: 0°=شمال، 90°=شرق، 180°=جنوب، 270°=غرب — يأتي من GPS الجوال
+  const rotation = heading != null ? heading : 0;
+  const baseW = 32;
+  const baseH = 44;
+  const scale = isSelected ? 1.18 : 1;
+  const w = Math.round(baseW * scale);
+  const h = Math.round(baseH * scale);
+  const glow = isSelected ? 14 : isOnline ? 6 : 0;
 
-      <!-- ===== ظل أرضي ===== -->
-      <ellipse cx="62" cy="96" rx="40" ry="5" fill="rgba(0,0,0,0.08)"/>
+  const body    = isOnline ? '#FFFFFF' : '#B0BEC5';
+  const bodyAlt = isOnline ? '#F0F0F0' : '#9EB0BA';
+  const stroke  = isOnline ? '#CFD8DC' : '#90A4AE';
+  const glass   = isOnline ? '#455A64' : '#78909C';
+  const glassL  = isOnline ? '#607D8B' : '#90A4AE';
+  const wheel   = '#263238';
+  const accent  = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
+  const shadow  = isSelected ? 'rgba(26,115,232,0.35)' : isOnline ? 'rgba(76,175,80,0.18)' : 'rgba(0,0,0,0.04)';
 
-      <!-- ===== الجدار الأيمن (عمق 3D) ===== -->
-      <path d="
-        M90,22 Q100,28 104,40
-        L104,68 Q100,80 90,86
-        L86,82 Q94,76 96,68
-        L96,40 Q94,30 86,26 Z"
-        fill="url(#sd${uid})"/>
+  // SVG بسيط — منظور علوي واضح حتى بالحجم صغير
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 44" width="${w}" height="${h}">
+<defs><filter id="ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="rgba(0,0,0,0.18)"/></filter></defs>
+<g filter="url(#ds)">
+<rect x="5" y="4" width="22" height="36" rx="7" ry="8" fill="${body}" stroke="${stroke}" stroke-width="0.8"/>
+<path d="M7,14 L7,9 Q7,5 11,4.5 L21,4.5 Q25,5 25,9 L25,14 Q22,17 16,17 Q10,17 7,14Z" fill="${glass}" opacity="0.8"/>
+<path d="M8,32 L8,28 Q12,26 16,26 Q20,26 24,28 L24,32 Q21,35 16,35 Q11,35 8,32Z" fill="${glassL}" opacity="0.55"/>
+<rect x="9" y="18" width="14" height="7" rx="2" fill="${bodyAlt}" stroke="${stroke}" stroke-width="0.3"/>
+<ellipse cx="6" cy="12" rx="2.5" ry="1.5" fill="${wheel}" opacity="0.85"/>
+<ellipse cx="26" cy="12" rx="2.5" ry="1.5" fill="${wheel}" opacity="0.85"/>
+<ellipse cx="6" cy="32" rx="2.5" ry="1.5" fill="${wheel}" opacity="0.85"/>
+<ellipse cx="26" cy="32" rx="2.5" ry="1.5" fill="${wheel}" opacity="0.85"/>
+<circle cx="11" cy="38" r="1.5" fill="#EF5350" opacity="0.8"/>
+<circle cx="21" cy="38" r="1.5" fill="#EF5350" opacity="0.8"/>
+${isOnline ? '<line x1="11" y1="3.5" x2="21" y2="3.5" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>' : ''}
+</g>
+${isSelected ? `<rect x="2" y="1" width="28" height="42" rx="9" ry="10" fill="none" stroke="${accent}" stroke-width="1.2" opacity="0.4" stroke-dasharray="3,2"/>` : ''}
+</svg>`;
 
-      <!-- ===== شريط سفلي ===== -->
-      <path d="
-        M30,85 Q55,94 82,88
-        L96,80 Q100,86 90,92
-        Q65,100 35,94
-        Q22,90 22,82 Z"
-        fill="${bodyBottom}" opacity="0.4"/>
-
-      <!-- ===== الجسم الرئيسي (علوي) ===== -->
-      <path d="
-        M34,60 Q26,48 26,36
-        Q26,18 38,12
-        L80,8 Q96,12 98,28
-        L100,60 Q96,76 84,84
-        L48,86 Q34,80 34,60 Z"
-        fill="url(#bd${uid})" filter="url(#ds${uid})"/>
-
-      <!-- ===== غطاء المحرك ===== -->
-      <path d="
-        M42,16 Q60,6 82,12
-        Q94,16 96,26 L96,38
-        L36,38 L36,28
-        Q36,20 42,16 Z"
-        fill="${bodyLight}"/>
-      <!-- لمعان الغطاء -->
-      <path d="M48,14 Q64,8 78,14 L76,30 L44,32 Z"
-        fill="white" opacity="0.25"/>
-
-      <!-- ===== شريط LED أمامي ===== -->
-      <path d="M40,10 Q60,2 86,10"
-        stroke="${ledStrip}" stroke-width="4" fill="none"
-        stroke-linecap="round" filter="url(#lg${uid})"
-        opacity="${isOnline ? '1' : '0.3'}"/>
-      ${isOnline ? `
-      <path d="M44,11 Q60,4 84,11"
-        stroke="white" stroke-width="1.5" fill="none"
-        stroke-linecap="round" opacity="0.5"/>` : ''}
-
-      <!-- ===== الزجاج الأمامي ===== -->
-      <path d="
-        M38,38 L96,38
-        L92,56 Q86,60 66,60
-        Q44,60 40,56 Z"
-        fill="url(#gd${uid})"/>
-      <!-- إطار أبيض -->
-      <path d="
-        M38,38 L96,38
-        L92,56 Q86,60 66,60
-        Q44,60 40,56 Z"
-        fill="none" stroke="${bodyWhite}" stroke-width="2"/>
-      <!-- انعكاس -->
-      <path d="M44,40 L72,40 L70,54 Q58,56 48,54 Z"
-        fill="white" opacity="0.08"/>
-
-      <!-- ===== السقف ===== -->
-      <path d="
-        M42,60 L90,60
-        L88,76 Q82,80 66,80
-        Q48,80 44,76 Z"
-        fill="${bodyLight}"/>
-      <!-- لمعان السقف -->
-      <path d="M46,61 L66,61 L66,76 Q56,78 46,75 Z"
-        fill="white" opacity="0.15"/>
-
-      <!-- ===== نافذة الجانب الأيمن ===== -->
-      <path d="
-        M96,40 L106,34
-        L106,70 L100,80
-        L92,84 L90,60 Z"
-        fill="${glassDark}" opacity="0.6"/>
-      <!-- فواصل -->
-      <line x1="98" y1="50" x2="106" y2="46" stroke="${bodySide}" stroke-width="1.5" opacity="0.65"/>
-      <line x1="96" y1="64" x2="104" y2="60" stroke="${bodySide}" stroke-width="1.5" opacity="0.65"/>
-      <!-- مقبض باب -->
-      <rect x="100" y="54" width="3.5" height="1.5" rx="0.75" fill="${bodySide}" opacity="0.8"/>
-
-      <!-- ===== نافذة الجانب الأيسر (خفيفة) ===== -->
-      <path d="M38,40 L26,34 L26,68 L32,78 L40,82 L40,60 Z"
-        fill="${glassDark}" opacity="0.15"/>
-
-      <!-- ===== الزجاج الخلفي ===== -->
-      <path d="
-        M46,76 L88,76
-        L90,84 Q82,88 66,88
-        Q50,88 44,84 Z"
-        fill="url(#gd${uid})" opacity="0.5"/>
-      <path d="
-        M46,76 L88,76
-        L90,84 Q82,88 66,88
-        Q50,88 44,84 Z"
-        fill="none" stroke="${bodyLight}" stroke-width="1"/>
-
-      <!-- ===== المؤخرة ===== -->
-      <path d="
-        M44,86 Q52,92 66,94
-        Q82,92 90,86
-        L94,90 Q82,98 66,98
-        Q50,98 38,90 Z"
-        fill="${bodySide}"/>
-
-      <!-- ===== العجلات ===== -->
-      <!-- أمامي أيمن (كبير قريب) -->
-      <ellipse cx="104" cy="34" rx="7" ry="5" fill="url(#wh${uid})"/>
-      <ellipse cx="104" cy="34" rx="4" ry="2.8" fill="${wheelMid}"/>
-      <circle cx="104" cy="34" r="1.5" fill="${wheelInner}"/>
-      <!-- خلفي أيمن -->
-      <ellipse cx="102" cy="80" rx="7" ry="5" fill="url(#wh${uid})"/>
-      <ellipse cx="102" cy="80" rx="4" ry="2.8" fill="${wheelMid}"/>
-      <circle cx="102" cy="80" r="1.5" fill="${wheelInner}"/>
-      <!-- أمامي أيسر (أصغر بعيد) -->
-      <ellipse cx="24" cy="30" rx="5.5" ry="4" fill="url(#wh${uid})"/>
-      <ellipse cx="24" cy="30" rx="3" ry="2.2" fill="${wheelMid}"/>
-      <circle cx="24" cy="30" r="1" fill="${wheelInner}"/>
-      <!-- خلفي أيسر -->
-      <ellipse cx="24" cy="76" rx="5.5" ry="4" fill="url(#wh${uid})"/>
-      <ellipse cx="24" cy="76" rx="3" ry="2.2" fill="${wheelMid}"/>
-      <circle cx="24" cy="76" r="1" fill="${wheelInner}"/>
-
-      <!-- ===== المرايا ===== -->
-      <ellipse cx="20" cy="40" rx="4" ry="2.2" fill="${mirrorDark}" stroke="${bodyMid}" stroke-width="0.5"/>
-      <ellipse cx="110" cy="34" rx="4" ry="2.2" fill="${mirrorDark}" stroke="${bodyMid}" stroke-width="0.5"/>
-
-      <!-- ===== إشارات خلفية ===== -->
-      <circle cx="44" cy="90" r="2.5" fill="${rearLight}" opacity="0.9"/>
-      <circle cx="90" cy="90" r="2.5" fill="${rearLight}" opacity="0.9"/>
-      ${isOnline ? `
-      <circle cx="44" cy="90" r="1" fill="white" opacity="0.5"/>
-      <circle cx="90" cy="90" r="1" fill="white" opacity="0.5"/>` : ''}
-
-      <!-- ===== لمعان ===== -->
-      <path d="M50,10 Q64,4 80,10 L76,26 L48,28 Z"
-        fill="white" opacity="0.12"/>
-
-      ${isSelected ? `
-      <ellipse cx="66" cy="56" rx="58" ry="48"
-        fill="none" stroke="${accentColor}" stroke-width="1.5"
-        opacity="0.35" stroke-dasharray="4,3"/>` : ''}
-    </svg>
-  `;
-
-  const encodedSvg = encodeURIComponent(svgCar);
+  const totalW = w + glow * 2;
+  const totalH = h + glow * 2 + (busNumber ? 14 : 0);
 
   return L.divIcon({
-    className: "bus-3d-icon",
+    className: "bus-marker-icon",
     html: `
-      <div style="
-        position: relative;
-        width: ${w + glowSize * 2}px;
-        height: ${h + glowSize * 2}px;
-        margin-left: -${glowSize}px;
-        margin-top: -${glowSize}px;
-      ">
-        ${isOnline || isSelected ? `
-        <div style="
-          position: absolute;
-          width: ${w + glowSize * 2}px;
-          height: ${h + glowSize * 2}px;
-          border-radius: 50%;
-          background: radial-gradient(circle, ${shadowColor} 0%, transparent 70%);
-          animation: ${isOnline ? 'busGlow 2.5s ease-in-out infinite' : 'none'};
-          top: 0; left: 0;
-        "></div>` : ''}
-        <div style="
-          position: absolute;
-          top: ${glowSize}px;
-          left: ${glowSize}px;
-          width: ${w}px;
-          height: ${h}px;
-          transform: rotate(${rotation}deg);
-          transform-origin: center center;
-          transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
-          cursor: pointer;
-          z-index: 10;
-          filter: drop-shadow(0 4px 10px rgba(0,0,0,0.22));
-        ">
-          <img src="data:image/svg+xml,${encodedSvg}" width="${w}" height="${h}" style="display:block;" />
+      <div style="position:relative;width:${totalW}px;height:${totalH}px;">
+        ${glow > 0 ? `<div style="position:absolute;width:${totalW}px;height:${h + glow * 2}px;top:0;left:0;border-radius:50%;background:radial-gradient(circle,${shadow} 0%,transparent 70%);${isOnline && !isSelected ? 'animation:busPulse 3s ease-in-out infinite;' : ''}"></div>` : ''}
+        <div style="position:absolute;top:${glow}px;left:${glow}px;width:${w}px;height:${h}px;transform:rotate(${rotation}deg);transform-origin:center center;transition:transform 1s cubic-bezier(0.4,0,0.2,1);cursor:pointer;z-index:10;">
+          <img src="data:image/svg+xml,${encodeURIComponent(svg)}" width="${w}" height="${h}" style="display:block;"/>
         </div>
-        ${busNumber ? `
-        <div style="
-          position: absolute;
-          bottom: ${glowSize - 14}px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: rgba(255,255,255,0.95);
-          color: #1A1A2E;
-          font-size: 9px;
-          font-weight: 800;
-          padding: 2px 8px;
-          border-radius: 8px;
-          white-space: nowrap;
-          z-index: 20;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-          border: 1px solid ${isOnline ? '#E0E0E0' : '#B0BEC5'};
-          letter-spacing: 0.3px;
-        ">${busNumber}</div>` : ''}
+        ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.95);color:#1A1A2E;font-size:8px;font-weight:800;padding:1px 5px;border-radius:5px;white-space:nowrap;z-index:20;box-shadow:0 1px 3px rgba(0,0,0,0.15);border:1px solid ${isOnline ? '#E0E0E0' : '#B0BEC5'};">${busNumber}</div>` : ''}
       </div>
-      <style>
-        @keyframes busGlow {
-          0%, 100% { opacity: 0.7; transform: scale(1); }
-          50% { opacity: 0.3; transform: scale(1.06); }
-        }
-        .bus-3d-icon { background: none !important; border: none !important; }
-      </style>
+      <style>.bus-marker-icon{background:none!important;border:none!important;}@keyframes busPulse{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:.3;transform:scale(1.05)}}</style>
     `,
-    iconSize: [w + glowSize * 2, h + glowSize * 2],
-    iconAnchor: [(w + glowSize * 2) / 2, (h + glowSize * 2) / 2],
-    popupAnchor: [0, -(h / 2) - glowSize],
+    iconSize: [totalW, totalH],
+    iconAnchor: [totalW / 2, totalH / 2],
+    popupAnchor: [0, -(h / 2) - glow],
   });
 };
 
@@ -332,6 +119,35 @@ function drawDirectGPSPath(map: L.Map, points: [number, number][]) {
   return layers;
 }
 
+// حساب الاتجاه بين نقطتين GPS (بالدرجات، 0°=شمال)
+function calcBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+// تحريك العلامة بسلاسة من موقع لآخر (Smooth Marker Animation)
+function animateMarker(marker: L.Marker, targetLat: number, targetLng: number, durationMs = 1500) {
+  const start = marker.getLatLng();
+  const startTime = performance.now();
+  const dlat = targetLat - start.lat;
+  const dlng = targetLng - start.lng;
+  if (Math.abs(dlat) < 0.00001 && Math.abs(dlng) < 0.00001) return; // لا حاجة للتحريك
+
+  function step(now: number) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / durationMs, 1);
+    // ease-out cubic
+    const ease = 1 - Math.pow(1 - t, 3);
+    marker.setLatLng([start.lat + dlat * ease, start.lng + dlng * ease]);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 export default function MapTracker({
   locations,
   selectedBus,
@@ -341,6 +157,8 @@ export default function MapTracker({
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const routeLinesRef = useRef<L.Polyline[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const prevLocationsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const isFirstRenderRef = useRef(true);
 
   // تهيئة الخريطة
   useEffect(() => {
@@ -580,10 +398,21 @@ export default function MapTracker({
       }
     }
 
-    // تحديث أو إضافة العلامات
+    // تحديث أو إضافة العلامات مع حساب الاتجاه من نقاط GPS المتتالية
     locations.forEach((loc) => {
       const existing = markersRef.current.get(loc.busId);
-      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, loc.heading, loc.busNumber);
+      const prev = prevLocationsRef.current.get(loc.busId);
+      
+      // حساب الاتجاه: أولاً من GPS الجوال، وإذا لم يتوفر نحسبه من النقاط المتتالية
+      let heading = loc.heading;
+      if ((heading == null || heading === 0) && prev) {
+        const dist = Math.abs(loc.latitude - prev.lat) + Math.abs(loc.longitude - prev.lng);
+        if (dist > 0.0001) { // بعد كافي لحساب الاتجاه (حوالي 10 متر)
+          heading = calcBearing(prev.lat, prev.lng, loc.latitude, loc.longitude);
+        }
+      }
+      
+      const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, heading, loc.busNumber);
 
       const timeDiff = Math.floor((Date.now() - new Date(loc.lastUpdate).getTime()) / 1000);
       const timeAgo = timeDiff < 60 ? `${timeDiff} ثانية` : timeDiff < 3600 ? `${Math.floor(timeDiff/60)} دقيقة` : `${Math.floor(timeDiff/3600)} ساعة`;
@@ -630,8 +459,16 @@ export default function MapTracker({
         </div>
       `;
 
+      // حفظ الموقع الحالي للمقارنة مع التحديث القادم
+      prevLocationsRef.current.set(loc.busId, { lat: loc.latitude, lng: loc.longitude });
+
       if (existing) {
-        existing.setLatLng([loc.latitude, loc.longitude]);
+        // تحريك العلامة بسلاسة بدل القفز المباشر
+        if (!isFirstRenderRef.current) {
+          animateMarker(existing, loc.latitude, loc.longitude, 1500);
+        } else {
+          existing.setLatLng([loc.latitude, loc.longitude]);
+        }
         existing.setIcon(icon);
         existing.getPopup()?.setContent(popupContent);
       } else {
@@ -643,6 +480,8 @@ export default function MapTracker({
         markersRef.current.set(loc.busId, marker);
       }
     });
+
+    isFirstRenderRef.current = false;
 
     // تحريك الخريطة للباص المحدد
     if (selectedBus) {

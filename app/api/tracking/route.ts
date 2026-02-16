@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { apiCache } from "@/lib/cache";
 
 // GET: الحصول على مواقع الباصات الحالية
 export async function GET(request: Request) {
@@ -16,6 +17,15 @@ export async function GET(request: Request) {
         include: { bus: true },
       });
       return NextResponse.json(locations);
+    }
+
+    // استخدام الكاش (5 ثوان) لتقليل ضغط قاعدة البيانات
+    const cacheKey = "tracking:all";
+    const cached = apiCache.get<unknown>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "X-Cache": "HIT" },
+      });
     }
 
     // آخر موقع لكل باص نشط
@@ -53,7 +63,12 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json(busLocations);
+    // كاش 5 ثوان لتقليل ضغط DB عند عدة مستخدمين يتتبعون
+    apiCache.set(cacheKey, busLocations, 5000);
+
+    return NextResponse.json(busLocations, {
+      headers: { "X-Cache": "MISS" },
+    });
   } catch (error) {
     console.error("Tracking GET error:", error);
     return NextResponse.json(
@@ -96,14 +111,17 @@ export async function POST(request: Request) {
       },
     });
 
-    // حذف المواقع القديمة (أكثر من 24 ساعة)
+    // إبطال كاش التتبع عند تحديث الموقع
+    apiCache.delete("tracking:all");
+
+    // حذف المواقع القديمة (أكثر من 24 ساعة) — بشكل غير متزامن
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    await prisma.busLocation.deleteMany({
+    prisma.busLocation.deleteMany({
       where: {
         busId,
         timestamp: { lt: oneDayAgo },
       },
-    });
+    }).catch(() => {}); // لا تنتظر الحذف
 
     return NextResponse.json(location, { status: 201 });
   } catch (error) {

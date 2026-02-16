@@ -311,18 +311,18 @@ export default function DriverTrackingPage() {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 3000,
-        timeout: 20000,
+        maximumAge: 1000, // قبول موقع عمره ثانية فقط لدقة أعلى
+        timeout: 15000,
       }
     );
 
-    // إرسال الموقع كل 10 ثوانٍ مع كامل البيانات
+    // إرسال الموقع كل 8 ثوانٍ مع كامل البيانات
     intervalRef.current = setInterval(() => {
       const pos = lastPositionRef.current;
       if (pos) {
         sendLocation(pos);
       }
-    }, 10000);
+    }, 8000);
 
     // إرسال الموقع فوراً
     navigator.geolocation.getCurrentPosition(
