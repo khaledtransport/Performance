@@ -10,33 +10,37 @@ export async function GET(request: Request) {
     const busId = searchParams.get("busId");
 
     if (busId) {
-      // موقع باص محدد مع آخر 120 نقطة من سجل المسارات الجديد
-      const session = await prisma.trackingSession.findFirst({
-        where: { busId, status: "ACTIVE", endedAt: null },
-        orderBy: { lastPointAt: "desc" },
-        select: { id: true },
-      });
-
-      if (session) {
-        const points = await prisma.trackingPoint.findMany({
-          where: { sessionId: session.id },
-          orderBy: { timestamp: "desc" },
-          take: 120,
-          select: {
-            id: true,
-            latitude: true,
-            longitude: true,
-            speed: true,
-            heading: true,
-            accuracy: true,
-            timestamp: true,
-            busId: true,
-          },
+      try {
+        // موقع باص محدد مع آخر 120 نقطة من سجل المسارات الجديد
+        const session = await prisma.trackingSession.findFirst({
+          where: { busId, status: "ACTIVE", endedAt: null },
+          orderBy: { lastPointAt: "desc" },
+          select: { id: true },
         });
 
-        if (points.length > 0) {
-          return NextResponse.json(points);
+        if (session) {
+          const points = await prisma.trackingPoint.findMany({
+            where: { sessionId: session.id },
+            orderBy: { timestamp: "desc" },
+            take: 120,
+            select: {
+              id: true,
+              latitude: true,
+              longitude: true,
+              speed: true,
+              heading: true,
+              accuracy: true,
+              timestamp: true,
+              busId: true,
+            },
+          });
+
+          if (points.length > 0) {
+            return NextResponse.json(points);
+          }
         }
+      } catch (sessionError) {
+        console.error("Tracking GET session query fallback:", sessionError);
       }
 
       // fallback للتوافق مع البيانات القديمة
@@ -60,52 +64,123 @@ export async function GET(request: Request) {
 
     const now = Date.now();
     const activeSessionThreshold = new Date(now - 30 * 1000); // 30 ثانية لعرض أسرع لحالة الاتصال
-    const activeSessions = await prisma.trackingSession.findMany({
-      where: {
-        status: "ACTIVE",
-        endedAt: null,
-        lastPointAt: { gte: activeSessionThreshold },
-      },
-      select: { busId: true },
-    });
-    const activeBusSet = new Set(activeSessions.map((s) => s.busId));
+    let activeBusSet = new Set<string>();
 
-    // آخر موقع لكل باص نشط
-    const buses = await prisma.bus.findMany({
-      where: { isActive: true },
-      include: {
-        locations: {
-          orderBy: { timestamp: "desc" },
-          take: 12,
+    try {
+      const activeSessions = await prisma.trackingSession.findMany({
+        where: {
+          status: "ACTIVE",
+          endedAt: null,
+          lastPointAt: { gte: activeSessionThreshold },
         },
-        districts: {
-          include: { district: true },
-        },
-      },
-    });
+        select: { busId: true },
+      });
+      activeBusSet = new Set(activeSessions.map((s) => s.busId));
+    } catch (activeError) {
+      console.error("Tracking GET active sessions fallback:", activeError);
+    }
 
-    // عرض جميع الباصات، حتى التي بدون موقع
-    const busLocations = buses.map((bus) => {
-      const hasLocation = bus.locations.length > 0;
-      const latestLoc = hasLocation ? bus.locations[0] : null;
-      // نعرض دائماً آخر موقع بغض النظر عن الدقة حتى يتحرك الماركر
-      const loc = latestLoc;
-      
-      return {
-        busId: bus.id,
-        busNumber: bus.busNumber,
-        district: bus.districts[0]?.district?.name || "غير محدد",
-        latitude: loc?.latitude ?? 21.4858, // موقع افتراضي: جدة
-        longitude: loc?.longitude ?? 39.1925,
-        speed: loc?.speed ?? 0,
-        heading: loc?.heading ?? null,
-        accuracy: latestLoc?.accuracy ?? null,
-        lastUpdate: latestLoc?.timestamp ?? bus.createdAt,
-        isOnline: activeBusSet.has(bus.id),
-        hasLocation, // هل يوجد موقع حقيقي
-        isCellTower: latestLoc?.accuracy != null && latestLoc.accuracy >= 300, // هل الموقع غير دقيق (برج خلوي أو ضعيف)
-      };
-    });
+    let busLocations: Array<{
+      busId: string;
+      busNumber: string;
+      district: string;
+      latitude: number;
+      longitude: number;
+      speed: number | null;
+      heading: number | null;
+      accuracy: number | null;
+      lastUpdate: Date;
+      isOnline: boolean;
+      hasLocation: boolean;
+      isCellTower: boolean;
+    }>;
+
+    try {
+      // آخر موقع لكل باص نشط
+      const buses = await prisma.bus.findMany({
+        where: { isActive: true },
+        include: {
+          locations: {
+            orderBy: { timestamp: "desc" },
+            take: 12,
+          },
+          districts: {
+            include: { district: true },
+          },
+        },
+      });
+
+      // عرض جميع الباصات، حتى التي بدون موقع
+      busLocations = buses.map((bus) => {
+        const hasLocation = bus.locations.length > 0;
+        const latestLoc = hasLocation ? bus.locations[0] : null;
+        const loc = latestLoc;
+
+        return {
+          busId: bus.id,
+          busNumber: bus.busNumber,
+          district: bus.districts[0]?.district?.name || "غير محدد",
+          latitude: loc?.latitude ?? 21.4858,
+          longitude: loc?.longitude ?? 39.1925,
+          speed: loc?.speed ?? 0,
+          heading: loc?.heading ?? null,
+          accuracy: latestLoc?.accuracy ?? null,
+          lastUpdate: latestLoc?.timestamp ?? bus.createdAt,
+          isOnline: activeBusSet.has(bus.id),
+          hasLocation,
+          isCellTower: latestLoc?.accuracy != null && latestLoc.accuracy >= 300,
+        };
+      });
+    } catch (busesError) {
+      console.error("Tracking GET buses query fallback:", busesError);
+
+      const buses = await prisma.bus.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          busNumber: true,
+          createdAt: true,
+        },
+      });
+
+      const latestLocations = await Promise.all(
+        buses.map(async (bus) => {
+          const latestLoc = await prisma.busLocation.findFirst({
+            where: { busId: bus.id },
+            orderBy: { timestamp: "desc" },
+            select: {
+              latitude: true,
+              longitude: true,
+              speed: true,
+              heading: true,
+              accuracy: true,
+              timestamp: true,
+            },
+          });
+
+          return { bus, latestLoc };
+        })
+      );
+
+      busLocations = latestLocations.map(({ bus, latestLoc }) => {
+        const hasLocation = !!latestLoc;
+
+        return {
+          busId: bus.id,
+          busNumber: bus.busNumber,
+          district: "غير محدد",
+          latitude: latestLoc?.latitude ?? 21.4858,
+          longitude: latestLoc?.longitude ?? 39.1925,
+          speed: latestLoc?.speed ?? 0,
+          heading: latestLoc?.heading ?? null,
+          accuracy: latestLoc?.accuracy ?? null,
+          lastUpdate: latestLoc?.timestamp ?? bus.createdAt,
+          isOnline: activeBusSet.has(bus.id),
+          hasLocation,
+          isCellTower: latestLoc?.accuracy != null && latestLoc.accuracy >= 300,
+        };
+      });
+    }
 
     // كاش 2 ثانية لتقليل ضغط DB مع استجابة سريعة للتحديثات
     apiCache.set(cacheKey, busLocations, 2000);

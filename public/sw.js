@@ -1,4 +1,4 @@
-const CACHE_NAME = "university-transport-v9";
+const CACHE_NAME = "university-transport-v10";
 const OFFLINE_URL = "/Performance/offline";
 
 // الملفات الثابتة للتخزين المسبق
