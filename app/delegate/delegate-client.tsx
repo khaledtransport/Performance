@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { TripForm } from "@/components/delegate/trip-form";
 import { TodayTrips } from "@/components/delegate/today-trips";
 import { District, RouteEntity, TripEntry } from "@/components/delegate/types";
+import { useToast } from "@/components/ui/use-toast";
 
 interface DelegateClientProps {
     initialRoutes: RouteEntity[];
@@ -24,6 +25,7 @@ export default function DelegateClient({
     const [loading, setLoading] = useState(false);
 
     const [success, setSuccess] = useState(false);
+    const { toast } = useToast();
 
     // Fetch trips automatically when component mounts
     useEffect(() => {
@@ -54,7 +56,7 @@ export default function DelegateClient({
             // Find the selected route to get busId
             const selectedRoute = routes.find(r => r.id === data.routeId);
             if (!selectedRoute || !selectedRoute.bus?.id) {
-                alert("خطأ: الرحلة المحددة ليس لديها باص");
+                toast({ title: "خطأ", description: "الرحلة المحددة ليس لديها باص", variant: "destructive" });
                 return;
             }
 
@@ -96,11 +98,11 @@ export default function DelegateClient({
                 setTimeout(() => setSuccess(false), 3000);
             } else {
                 const error = await res.json();
-                alert(error.error || "حدث خطأ");
+                toast({ title: "خطأ", description: error.error || "حدث خطأ", variant: "destructive" });
             }
         } catch (error) {
             console.error("Error creating trip:", error);
-            alert("حدث خطأ في تسجيل الرحلة");
+            toast({ title: "خطأ", description: "حدث خطأ في تسجيل الرحلة", variant: "destructive" });
         } finally {
             setLoading(false);
         }

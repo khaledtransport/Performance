@@ -1,8 +1,11 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import { NavigationBar } from "@/components/navigation-bar";
 import { Breadcrumb } from "@/components/breadcrumb";
+import { AuthProvider } from "@/hooks/use-auth";
+import { PWAInstallPrompt } from "@/components/pwa-install";
+import { Toaster } from "@/components/ui/toaster";
 
 const cairo = Cairo({
   subsets: ["arabic"],
@@ -16,6 +19,19 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.ico",
   },
+  manifest: "/Performance/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "النقل الجامعي",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#3b82f6",
 };
 
 export default function RootLayout({
@@ -25,12 +41,20 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="/Performance/icons/icon-192x192.png" />
+      </head>
       <body className={cairo.className}>
-        <NavigationBar />
-        <Breadcrumb />
-        <div className="bg-background text-foreground min-h-[calc(100vh-120px)]">
-          {children}
-        </div>
+        <AuthProvider>
+          <NavigationBar />
+          <Breadcrumb />
+          <div className="bg-background text-foreground min-h-[calc(100vh-120px)]">
+            {children}
+          </div>
+          <PWAInstallPrompt />
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

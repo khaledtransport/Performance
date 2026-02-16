@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface University {
   id: string;
@@ -18,6 +19,7 @@ export default function UniversitiesPage() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ name: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchUniversities();
@@ -56,12 +58,12 @@ export default function UniversitiesPage() {
         throw new Error(data.error || `فشل حفظ الجامعة: ${res.status}`);
       }
 
-      alert(editingId ? "تم تعديل الجامعة بنجاح" : "تم إضافة الجامعة بنجاح");
+      toast({ title: "نجاح", description: editingId ? "تم تعديل الجامعة بنجاح" : "تم إضافة الجامعة بنجاح" });
       setFormData({ name: "" });
       setEditingId(null);
       fetchUniversities();
     } catch (error) {
-      alert(`خطأ: ${error instanceof Error ? error.message : "خطأ غير معروف"}`);
+      toast({ title: "خطأ", description: error instanceof Error ? error.message : "خطأ غير معروف", variant: "destructive" });
       console.error("خطأ في حفظ الجامعة:", error);
     }
   };
@@ -72,7 +74,7 @@ export default function UniversitiesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذه الجامعة؟")) return;
+    if (!window.confirm("هل أنت متأكد من حذف هذه الجامعة؟")) return;
 
     try {
       const res = await fetch(`/Performance/api/universities/${id}`, {
@@ -82,14 +84,10 @@ export default function UniversitiesPage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `خطأ في الحذف: ${res.status}`);
       }
-      alert("تم حذف الجامعة بنجاح");
+      toast({ title: "نجاح", description: "تم حذف الجامعة بنجاح" });
       fetchUniversities();
     } catch (error) {
-      alert(
-        `خطأ في حذف الجامعة: ${
-          error instanceof Error ? error.message : "خطأ غير معروف"
-        }`
-      );
+      toast({ title: "خطأ", description: `خطأ في حذف الجامعة: ${error instanceof Error ? error.message : "خطأ غير معروف"}`, variant: "destructive" });
       console.error("خطأ في حذف الجامعة:", error);
     }
   };

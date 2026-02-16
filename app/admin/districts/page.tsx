@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2, ArrowRight, MapPin } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface District {
   id: string;
@@ -20,6 +21,7 @@ export default function DistrictsPage() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ name: "", description: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchDistricts();
@@ -58,12 +60,12 @@ export default function DistrictsPage() {
         throw new Error(data.error || `فشل حفظ الحي: ${res.status}`);
       }
 
-      alert(editingId ? "تم تعديل الحي بنجاح" : "تم إضافة الحي بنجاح");
+      toast({ title: "نجاح", description: editingId ? "تم تعديل الحي بنجاح" : "تم إضافة الحي بنجاح" });
       setFormData({ name: "", description: "" });
       setEditingId(null);
       fetchDistricts();
     } catch (error) {
-      alert(`خطأ: ${error instanceof Error ? error.message : "خطأ غير معروف"}`);
+      toast({ title: "خطأ", description: error instanceof Error ? error.message : "خطأ غير معروف", variant: "destructive" });
       console.error("خطأ في حفظ الحي:", error);
     }
   };
@@ -77,7 +79,7 @@ export default function DistrictsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذا الحي؟")) return;
+    if (!window.confirm("هل أنت متأكد من حذف هذا الحي؟")) return;
 
     try {
       const res = await fetch(`/Performance/api/districts/${id}`, {
@@ -87,14 +89,10 @@ export default function DistrictsPage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `خطأ في الحذف: ${res.status}`);
       }
-      alert("تم حذف الحي بنجاح");
+      toast({ title: "نجاح", description: "تم حذف الحي بنجاح" });
       fetchDistricts();
     } catch (error) {
-      alert(
-        `خطأ في حذف الحي: ${
-          error instanceof Error ? error.message : "خطأ غير معروف"
-        }`
-      );
+      toast({ title: "خطأ", description: `خطأ في حذف الحي: ${error instanceof Error ? error.message : "خطأ غير معروف"}`, variant: "destructive" });
       console.error("خطأ في حذف الحي:", error);
     }
   };

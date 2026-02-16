@@ -20,6 +20,10 @@ import {
   MapPin,
   Clock,
   TrendingUp,
+  Navigation,
+  FileBarChart,
+  Bell,
+  Shield,
 } from "lucide-react";
 
 interface NavItem {
@@ -37,6 +41,20 @@ const navItems: NavItem[] = [
     icon: <BarChart3 className="w-5 h-5" />,
     description: "عرض وإدارة جميع الرحلات",
     color: "from-blue-500 to-blue-600",
+  },
+  {
+    label: "تتبع الباصات",
+    href: "/tracking",
+    icon: <Navigation className="w-5 h-5" />,
+    description: "تتبع GPS مباشر للأسطول",
+    color: "from-emerald-500 to-emerald-600",
+  },
+  {
+    label: "التقارير والإحصائيات",
+    href: "/reports",
+    icon: <FileBarChart className="w-5 h-5" />,
+    description: "تقارير شاملة وتحليلات متقدمة",
+    color: "from-amber-500 to-amber-600",
   },
   {
     label: "إدارة الجامعات",
@@ -137,10 +155,10 @@ export default function HomePage() {
                     <ArrowRight className="w-5 h-5" />
                   </Button>
                 </Link>
-                <Link href="/delegate" className="flex-1">
-                  <Button className="w-full bg-white hover:bg-slate-50 text-slate-700 text-lg py-6 rounded-lg border border-slate-200 transition-all duration-300 shadow-sm hover:shadow-md">
-                    <Clock className="w-5 h-5" />
-                    تسجيل رحلة
+                <Link href="/tracking" className="flex-1">
+                  <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white text-lg py-6 rounded-lg gap-2 shadow-xl hover:shadow-2xl transition-all duration-300">
+                    <Navigation className="w-5 h-5" />
+                    تتبع مباشر
                   </Button>
                 </Link>
               </div>
@@ -167,10 +185,11 @@ export default function HomePage() {
               <div className="bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300">
                 <div className="space-y-6">
                   {[
-                    { icon: TrendingUp, text: "تحليلات شاملة" },
+                    { icon: Navigation, text: "تتبع GPS مباشر" },
+                    { icon: FileBarChart, text: "تقارير وإحصائيات" },
+                    { icon: Bell, text: "إشعارات فورية" },
+                    { icon: Shield, text: "حماية وصلاحيات" },
                     { icon: Calendar, text: "جدولة ذكية" },
-                    { icon: Zap, text: "تحديثات فورية" },
-                    { icon: Users, text: "إدارة الفريق" },
                   ].map((item, i) => (
                     <div
                       key={i}
@@ -292,6 +311,18 @@ export default function HomePage() {
                   لوحة التحكم
                 </Link>
                 <Link
+                  href="/tracking"
+                  className="text-slate-600 hover:text-blue-600 transition-colors block"
+                >
+                  تتبع الباصات
+                </Link>
+                <Link
+                  href="/reports"
+                  className="text-slate-600 hover:text-blue-600 transition-colors block"
+                >
+                  التقارير
+                </Link>
+                <Link
                   href="/delegate"
                   className="text-slate-600 hover:text-blue-600 transition-colors block"
                 >
@@ -315,21 +346,6 @@ export default function HomePage() {
         </div>
       </footer>
 
-      <style>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.8s ease-out;
-        }
-      `}</style>
     </div>
   );
 }

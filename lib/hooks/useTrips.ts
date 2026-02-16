@@ -20,7 +20,7 @@ export function useTrips(filters: TripFilters = {}) {
   if (filters.direction) params.set('direction', filters.direction)
   if (filters.routeId) params.set('routeId', filters.routeId)
 
-  const key = `/api/trips${params.toString() ? `?${params.toString()}` : ''}`
+  const key = `/Performance/api/trips${params.toString() ? `?${params.toString()}` : ''}`
   const { data, error, mutate, isLoading } = useSWR(key, fetcher, { refreshInterval: 60_000 })
 
   return {

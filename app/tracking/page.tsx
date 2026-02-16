@@ -1,0 +1,263 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Bus,
+  MapPin,
+  RefreshCw,
+  Wifi,
+  WifiOff,
+  Navigation,
+  Clock,
+  Gauge,
+} from "lucide-react";
+import dynamic from "next/dynamic";
+
+// استيراد المكون ديناميكياً لتجنب مشاكل SSR
+const MapComponent = dynamic(() => import("@/components/map-tracker"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[500px] bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <span className="text-slate-500">جاري تحميل الخريطة...</span>
+      </div>
+    </div>
+  ),
+});
+
+interface BusLocationData {
+  busId: string;
+  busNumber: string;
+  district: string;
+  latitude: number;
+  longitude: number;
+  speed: number | null;
+  heading: number | null;
+  lastUpdate: string;
+  isOnline: boolean;
+  hasLocation?: boolean;
+}
+
+export default function TrackingPage() {
+  const [locations, setLocations] = useState<BusLocationData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedBus, setSelectedBus] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const fetchLocations = useCallback(async () => {
+    try {
+      const res = await fetch("/Performance/api/tracking");
+      if (res.ok) {
+        const data = await res.json();
+        setLocations(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch locations:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLocations();
+  }, [fetchLocations]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(fetchLocations, 5000); // كل 5 ثوان
+    return () => clearInterval(interval);
+  }, [autoRefresh, fetchLocations]);
+
+  const onlineBuses = locations.filter((l) => l.isOnline);
+  const offlineBuses = locations.filter((l) => !l.isOnline);
+
+  const formatTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleTimeString("ar-SA", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
+        {/* العنوان */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl">
+                <Navigation className="w-6 h-6 text-white" />
+              </div>
+              تتبع الباصات المباشر
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
+              متابعة مواقع الباصات على الخريطة في الوقت الفعلي
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant={autoRefresh ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className="gap-2"
+            >
+              {autoRefresh ? (
+                <Wifi className="w-4 h-4" />
+              ) : (
+                <WifiOff className="w-4 h-4" />
+              )}
+              {autoRefresh ? "مباشر" : "متوقف"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchLocations}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              تحديث
+            </Button>
+          </div>
+        </div>
+
+        {/* إحصائيات سريعة */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-0">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Bus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                  {locations.length}
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">إجمالي</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-0">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Wifi className="w-8 h-8 text-green-600 dark:text-green-400" />
+              <div>
+                <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                  {onlineBuses.length}
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400">متصل</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 border-0">
+            <CardContent className="p-4 flex items-center gap-3">
+              <WifiOff className="w-8 h-8 text-red-600 dark:text-red-400" />
+              <div>
+                <p className="text-2xl font-bold text-red-700 dark:text-red-300">
+                  {offlineBuses.length}
+                </p>
+                <p className="text-xs text-red-600 dark:text-red-400">غير متصل</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-0">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Gauge className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              <div>
+                <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                  {onlineBuses.length > 0
+                    ? Math.round(
+                        onlineBuses.reduce((s, b) => s + (b.speed || 0), 0) /
+                          onlineBuses.length
+                      )
+                    : 0}
+                </p>
+                <p className="text-xs text-purple-600 dark:text-purple-400">
+                  متوسط السرعة
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* الخريطة وقائمة الباصات */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* الخريطة */}
+          <div className="lg:col-span-3">
+            <Card className="overflow-hidden border-0 shadow-lg">
+              <MapComponent
+                locations={locations}
+                selectedBus={selectedBus}
+                onSelectBus={setSelectedBus}
+              />
+            </Card>
+          </div>
+
+          {/* قائمة الباصات */}
+          <div className="lg:col-span-1">
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Bus className="w-5 h-5" />
+                  الباصات ({locations.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
+                {locations.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400">
+                    <MapPin className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>لا توجد باصات مسجلة</p>
+                    <p className="text-xs mt-1">
+                      أضف باصات من صفحة الإدارة
+                    </p>
+                  </div>
+                ) : (
+                  locations.map((bus) => (
+                    <button
+                      key={bus.busId}
+                      onClick={() => setSelectedBus(bus.busId)}
+                      className={`w-full text-right p-3 rounded-lg border transition-all duration-200 ${
+                        selectedBus === bus.busId
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
+                          : "border-slate-200 dark:border-slate-700 hover:border-blue-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <Badge
+                          variant={bus.isOnline ? "default" : "destructive"}
+                          className="text-xs"
+                        >
+                          {bus.isOnline ? "متصل" : bus.hasLocation === false ? "بانتظار التتبع" : "غير متصل"}
+                        </Badge>
+                        <span className="font-bold text-sm">{bus.busNumber}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <MapPin className="w-3 h-3" />
+                        {bus.district}
+                      </div>
+                      <div className="flex items-center justify-between mt-1 text-xs text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <Gauge className="w-3 h-3" />
+                          {bus.speed?.toFixed(0) || 0} كم/س
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatTime(bus.lastUpdate)}
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -4,6 +4,9 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { NotificationCenter } from "@/components/notification-center";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useAuth } from "@/hooks/use-auth";
 import {
   BarChart3,
   Menu,
@@ -16,6 +19,11 @@ import {
   Clock,
   Home,
   Calendar,
+  Navigation,
+  FileText,
+  LogOut,
+  User,
+  Link2,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -25,7 +33,22 @@ interface NavigationItem {
   category?: string;
 }
 
-const navigationItems: NavigationItem[] = [
+// قائمة السائق فقط
+const driverNavigationItems: NavigationItem[] = [
+  {
+    label: "لوحة السائق",
+    href: "/driver",
+    icon: <Home className="w-4 h-4" />,
+  },
+  {
+    label: "التتبع المباشر",
+    href: "/driver/tracking",
+    icon: <Navigation className="w-4 h-4" />,
+  },
+];
+
+// القائمة الكاملة للإدارة
+const fullNavigationItems: NavigationItem[] = [
   {
     label: "الرئيسية",
     href: "/",
@@ -46,6 +69,16 @@ const navigationItems: NavigationItem[] = [
     label: "تسجيل الرحلات",
     href: "/delegate",
     icon: <Clock className="w-4 h-4" />,
+  },
+  {
+    label: "تتبع الباصات",
+    href: "/tracking",
+    icon: <Navigation className="w-4 h-4" />,
+  },
+  {
+    label: "التقارير",
+    href: "/reports",
+    icon: <FileText className="w-4 h-4" />,
   },
   {
     label: "الإدارة",
@@ -72,6 +105,11 @@ const adminItems: NavigationItem[] = [
     icon: <Bus className="w-4 h-4" />,
   },
   {
+    label: "ربط السائقين",
+    href: "/admin/driver-assignments",
+    icon: <Link2 className="w-4 h-4" />,
+  },
+  {
     label: "المناديب",
     href: "/admin/representatives",
     icon: <Users className="w-4 h-4" />,
@@ -92,17 +130,26 @@ export function NavigationBar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAdminDropdown, setShowAdminDropdown] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const { user, logout } = useAuth();
+
+  // إخفاء شريط التنقل في صفحة الدخول
+  if (pathname === "/login" || pathname === "/Performance/login") return null;
+
+  // اختيار القائمة حسب الدور
+  const isDriver = user?.role === "DRIVER";
+  const navigationItems = isDriver ? driverNavigationItems : fullNavigationItems;
 
   const isActive = (href: string) => {
-    if (href === "/") return pathname === "/";
-    return pathname.startsWith(href);
+    if (href === "/") return pathname === "/" || pathname === "/Performance";
+    return pathname.startsWith(href) || pathname.startsWith(`/Performance${href}`);
   };
 
   return (
     <>
       {/* Main Navigation Bar */}
       <nav
-        className={`sticky top-0 z-40 transition-all duration-300 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm`}
+        className={`sticky top-0 z-40 transition-all duration-300 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm`}
         dir="rtl"
       >
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-5">
@@ -194,11 +241,13 @@ export function NavigationBar() {
 
             {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center gap-2">
+              <NotificationCenter />
+              <ThemeToggle />
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-slate-600 hover:bg-slate-100"
+                className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 {mobileMenuOpen ? (
                   <X className="w-5 h-5" />
@@ -206,6 +255,57 @@ export function NavigationBar() {
                   <Menu className="w-5 h-5" />
                 )}
               </Button>
+            </div>
+
+            {/* Desktop Toolbar */}
+            <div className="hidden md:flex items-center gap-2">
+              <NotificationCenter />
+              <ThemeToggle />
+              {user && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-bold">
+                      {user.fullName.charAt(0)}
+                    </div>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 max-w-[100px] truncate">
+                      {user.fullName}
+                    </span>
+                  </button>
+                  {showUserMenu && (
+                    <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-2 z-50">
+                      <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
+                        <p className="text-sm font-bold text-slate-800 dark:text-white">
+                          {user.fullName}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {user.role === "ADMIN"
+                            ? "مدير النظام"
+                            : user.role === "MANAGER"
+                            ? "مدير"
+                            : user.role === "DELEGATE"
+                            ? "مندوب"
+                            : user.role === "DRIVER"
+                            ? "سائق"
+                            : "مشاهد"}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          logout();
+                        }}
+                        className="w-full px-4 py-2 flex items-center gap-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        تسجيل خروج
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

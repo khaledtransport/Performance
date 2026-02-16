@@ -29,6 +29,7 @@ model Bus {
   assignments BusDriverAssignment[]
   routes      Route[]
   trips       Trip[]
+  locations   BusLocation[]
 
   @@map("buses")
 }
@@ -42,6 +43,7 @@ model Driver {
   updatedAt     DateTime              @updatedAt @map("updated_at")
   assignments   BusDriverAssignment[]
   routes        Route[]
+  user          User?                 @relation("DriverUser")
 
   @@map("drivers")
 }
@@ -169,4 +171,76 @@ enum TripStatus {
 enum TripDirection {
   GO
   RETURN
+}
+
+// ============ نظام المصادقة ============
+
+model User {
+  id            String         @id @default(uuid())
+  username      String         @unique
+  email         String?        @unique
+  passwordHash  String         @map("password_hash")
+  fullName      String         @map("full_name")
+  role          UserRole       @default(VIEWER)
+  isActive      Boolean        @default(true) @map("is_active")
+  driverId      String?        @unique @map("driver_id")
+  lastLoginAt   DateTime?      @map("last_login_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  notifications Notification[]
+  driver        Driver?        @relation("DriverUser", fields: [driverId], references: [id])
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  DELEGATE
+  DRIVER
+  VIEWER
+}
+
+// ============ نظام الإشعارات ============
+
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String?            @map("user_id")
+  title     String
+  message   String
+  type      NotificationType   @default(INFO)
+  isRead    Boolean            @default(false) @map("is_read")
+  link      String?
+  createdAt DateTime           @default(now()) @map("created_at")
+  user      User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  TRIP_UPDATE
+  SYSTEM
+}
+
+// ============ تتبع GPS ============
+
+model BusLocation {
+  id        String   @id @default(uuid())
+  busId     String   @map("bus_id")
+  latitude  Float
+  longitude Float
+  speed     Float?   @default(0)
+  heading   Float?   @default(0)
+  accuracy  Float?
+  timestamp DateTime @default(now())
+  bus       Bus      @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  @@index([busId, timestamp])
+  @@map("bus_locations")
 }

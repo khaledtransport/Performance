@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Driver {
   id: string;
@@ -19,6 +20,7 @@ export default function DriversPage() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchDrivers();
@@ -57,12 +59,12 @@ export default function DriversPage() {
         throw new Error(data.error || `فشل حفظ السائق: ${res.status}`);
       }
 
-      alert(editingId ? "تم تعديل السائق بنجاح" : "تم إضافة السائق بنجاح");
+      toast({ title: "نجاح", description: editingId ? "تم تعديل السائق بنجاح" : "تم إضافة السائق بنجاح" });
       setFormData({ name: "", phone: "" });
       setEditingId(null);
       fetchDrivers();
     } catch (error) {
-      alert(`خطأ: ${error instanceof Error ? error.message : "خطأ غير معروف"}`);
+      toast({ title: "خطأ", description: error instanceof Error ? error.message : "خطأ غير معروف", variant: "destructive" });
       console.error("خطأ في حفظ السائق:", error);
     }
   };
@@ -73,7 +75,7 @@ export default function DriversPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذا السائق؟")) return;
+    if (!window.confirm("هل أنت متأكد من حذف هذا السائق؟")) return;
 
     try {
       const res = await fetch(`/Performance/api/drivers/${id}`, {
@@ -83,14 +85,10 @@ export default function DriversPage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `خطأ في الحذف: ${res.status}`);
       }
-      alert("تم حذف السائق بنجاح");
+      toast({ title: "نجاح", description: "تم حذف السائق بنجاح" });
       fetchDrivers();
     } catch (error) {
-      alert(
-        `خطأ في حذف السائق: ${
-          error instanceof Error ? error.message : "خطأ غير معروف"
-        }`
-      );
+      toast({ title: "خطأ", description: `خطأ في حذف السائق: ${error instanceof Error ? error.message : "خطأ غير معروف"}`, variant: "destructive" });
       console.error("خطأ في حذف السائق:", error);
     }
   };

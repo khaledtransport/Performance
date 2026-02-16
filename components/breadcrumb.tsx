@@ -31,6 +31,10 @@ const getBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
       routes: "الطرق",
       districts: "الأحياء",
       calendar: "التقويم",
+      tracking: "تتبع الباصات",
+      reports: "التقارير",
+      login: "تسجيل الدخول",
+      offline: "غير متصل",
     };
 
     const label = labelMap[segment] || segment;
@@ -44,8 +48,8 @@ export function Breadcrumb() {
   const pathname = usePathname();
   const breadcrumbs = getBreadcrumbs(pathname);
 
-  // لا تعرض breadcrumb على الصفحة الرئيسية
-  if (pathname === "/") return null;
+  // لا تعرض breadcrumb على الصفحة الرئيسية أو تسجيل الدخول
+  if (pathname === "/" || pathname === "/login") return null;
 
   return (
     <div

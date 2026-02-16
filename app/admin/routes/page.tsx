@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Trash2, Plus, ArrowRight } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface University {
   id: string;
@@ -64,6 +65,7 @@ export default function RoutesPage() {
     driverId: "",
     busId: "",
   });
+  const { toast } = useToast();
 
   // جلب البيانات
   useEffect(() => {
@@ -183,7 +185,7 @@ export default function RoutesPage() {
 
   // حذف route
   const handleDelete = async (id: string) => {
-    if (!confirm("هل تريد حذف هذا الطريق؟")) return;
+    if (!window.confirm("هل تريد حذف هذا الطريق؟")) return;
 
     try {
       const res = await fetch(`/Performance/api/routes/${id}`, {
@@ -195,7 +197,7 @@ export default function RoutesPage() {
       }
       setRoutes(routes.filter((r) => r.id !== id));
       setError("");
-      alert("تم حذف الطريق بنجاح");
+      toast({ title: "نجاح", description: "تم حذف الطريق بنجاح" });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "خطأ غير معروف";
       setError(`خطأ في الحذف: ${errorMsg}`);

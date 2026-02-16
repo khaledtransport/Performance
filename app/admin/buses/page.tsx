@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Edit2, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface District {
   id: string;
@@ -41,6 +42,7 @@ export default function BusesPage() {
     districtIds: [] as string[],
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchBuses();
@@ -96,12 +98,12 @@ export default function BusesPage() {
         throw new Error(data.error || `فشل حفظ الباص: ${res.status}`);
       }
 
-      alert(editingId ? "تم تعديل الباص بنجاح" : "تم إضافة الباص بنجاح");
+      toast({ title: "نجاح", description: editingId ? "تم تعديل الباص بنجاح" : "تم إضافة الباص بنجاح" });
       setFormData({ busNumber: "", capacity: "", districtIds: [] });
       setEditingId(null);
       fetchBuses();
     } catch (error) {
-      alert(`خطأ: ${error instanceof Error ? error.message : "خطأ غير معروف"}`);
+      toast({ title: "خطأ", description: error instanceof Error ? error.message : "خطأ غير معروف", variant: "destructive" });
       console.error("خطأ في حفظ الباص:", error);
     }
   };
@@ -116,7 +118,7 @@ export default function BusesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذا الباص؟")) return;
+    if (!window.confirm("هل أنت متأكد من حذف هذا الباص؟")) return;
 
     try {
       const res = await fetch(`/Performance/api/buses/${id}`, {
@@ -126,14 +128,10 @@ export default function BusesPage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `خطأ في الحذف: ${res.status}`);
       }
-      alert("تم حذف الباص بنجاح");
+      toast({ title: "نجاح", description: "تم حذف الباص بنجاح" });
       fetchBuses();
     } catch (error) {
-      alert(
-        `خطأ في حذف الباص: ${
-          error instanceof Error ? error.message : "خطأ غير معروف"
-        }`
-      );
+      toast({ title: "خطأ", description: `خطأ في حذف الباص: ${error instanceof Error ? error.message : "خطأ غير معروف"}`, variant: "destructive" });
       console.error("خطأ في حذف الباص:", error);
     }
   };

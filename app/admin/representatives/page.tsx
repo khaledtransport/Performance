@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Representative {
   id: string;
@@ -19,6 +20,7 @@ export default function RepresentativesPage() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchRepresentatives();
@@ -57,12 +59,12 @@ export default function RepresentativesPage() {
         throw new Error(data.error || `فشل حفظ المندوب: ${res.status}`);
       }
 
-      alert(editingId ? "تم تعديل المندوب بنجاح" : "تم إضافة المندوب بنجاح");
+      toast({ title: "نجاح", description: editingId ? "تم تعديل المندوب بنجاح" : "تم إضافة المندوب بنجاح" });
       setFormData({ name: "", phone: "" });
       setEditingId(null);
       fetchRepresentatives();
     } catch (error) {
-      alert(`خطأ: ${error instanceof Error ? error.message : "خطأ غير معروف"}`);
+      toast({ title: "خطأ", description: error instanceof Error ? error.message : "خطأ غير معروف", variant: "destructive" });
       console.error("خطأ في حفظ المندوب:", error);
     }
   };
@@ -73,7 +75,7 @@ export default function RepresentativesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذا المندوب؟")) return;
+    if (!window.confirm("هل أنت متأكد من حذف هذا المندوب؟")) return;
 
     try {
       const res = await fetch(`/Performance/api/representatives/${id}`, {
@@ -83,14 +85,10 @@ export default function RepresentativesPage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `خطأ في الحذف: ${res.status}`);
       }
-      alert("تم حذف المندوب بنجاح");
+      toast({ title: "نجاح", description: "تم حذف المندوب بنجاح" });
       fetchRepresentatives();
     } catch (error) {
-      alert(
-        `خطأ في حذف المندوب: ${
-          error instanceof Error ? error.message : "خطأ غير معروف"
-        }`
-      );
+      toast({ title: "خطأ", description: `خطأ في حذف المندوب: ${error instanceof Error ? error.message : "خطأ غير معروف"}`, variant: "destructive" });
       console.error("خطأ في حذف المندوب:", error);
     }
   };
