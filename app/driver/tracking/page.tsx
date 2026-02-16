@@ -78,6 +78,18 @@ export default function DriverTrackingPage() {
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastPositionRef = useRef<FullPosition | null>(null);
+  const isTrackingRef = useRef(false);
+  const selectedBusIdRef = useRef<string>("");
+
+  const getPendingStopKey = useCallback((busId: string) => `tracking_pending_stop:${busId}`, []);
+
+  useEffect(() => {
+    isTrackingRef.current = isTracking;
+  }, [isTracking]);
+
+  useEffect(() => {
+    selectedBusIdRef.current = selectedBusId;
+  }, [selectedBusId]);
 
   // فحص إذن الموقع عند التحميل + طلب تلقائي
   useEffect(() => {
@@ -260,6 +272,38 @@ export default function DriverTrackingPage() {
     [selectedBusId]
   );
 
+  const sendStopWithBeacon = useCallback((busId: string) => {
+    if (typeof window === "undefined" || !navigator.sendBeacon) return false;
+    try {
+      const payload = JSON.stringify({ busId, action: "stop" });
+      const blob = new Blob([payload], { type: "application/json" });
+      return navigator.sendBeacon("/Performance/api/tracking", blob);
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const flushPendingStop = useCallback(
+    async (busId: string) => {
+      if (typeof window === "undefined" || !busId) return;
+      const key = getPendingStopKey(busId);
+      if (!localStorage.getItem(key)) return;
+
+      try {
+        await fetch("/Performance/api/tracking", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ busId, action: "stop" }),
+          keepalive: true,
+        });
+        localStorage.removeItem(key);
+      } catch {
+        // سيُعاد المحاولة عند عودة الاتصال
+      }
+    },
+    [getPendingStopKey]
+  );
+
   // بدء التتبع
   const startTracking = useCallback(() => {
     if (!selectedBusId) {
@@ -285,6 +329,9 @@ export default function DriverTrackingPage() {
     setIsTracking(true);
     setSendCount(0);
     void setTrackingStatus("start");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(getPendingStopKey(selectedBusId));
+    }
 
     toast({
       title: "تم بدء التتبع ✅",
@@ -368,7 +415,7 @@ export default function DriverTrackingPage() {
       },
       { enableHighAccuracy: true, timeout: 15000 }
     );
-  }, [selectedBusId, sendLocation, toast, permissionStatus, setTrackingStatus]);
+  }, [selectedBusId, sendLocation, toast, permissionStatus, setTrackingStatus, getPendingStopKey]);
 
   // إيقاف التتبع
   const stopTracking = useCallback(() => {
@@ -382,12 +429,88 @@ export default function DriverTrackingPage() {
     }
     lastPositionRef.current = null;
     setIsTracking(false);
-    void setTrackingStatus("stop");
+
+    if (selectedBusId && typeof window !== "undefined") {
+      localStorage.setItem(getPendingStopKey(selectedBusId), "1");
+    }
+
+    void setTrackingStatus("stop").finally(() => {
+      if (selectedBusId && typeof window !== "undefined") {
+        localStorage.removeItem(getPendingStopKey(selectedBusId));
+      }
+    });
+
     toast({
       title: "تم إيقاف التتبع",
       description: `تم إرسال ${sendCount} تحديث للموقع`,
     });
-  }, [sendCount, toast, setTrackingStatus]);
+  }, [sendCount, toast, setTrackingStatus, selectedBusId, getPendingStopKey]);
+
+  // التعامل مع فقدان/عودة الإنترنت وإغلاق الصفحة أثناء التتبع
+  useEffect(() => {
+    const handleOffline = () => {
+      const activeBusId = selectedBusIdRef.current;
+      if (!isTrackingRef.current || !activeBusId) return;
+
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      lastPositionRef.current = null;
+      setIsTracking(false);
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(getPendingStopKey(activeBusId), "1");
+      }
+
+      toast({
+        title: "انقطع الإنترنت",
+        description: "تم إيقاف التتبع محلياً وسيتم مزامنة حالة الإيقاف تلقائياً عند عودة الاتصال",
+        variant: "destructive",
+      });
+    };
+
+    const handleOnline = () => {
+      const activeBusId = selectedBusIdRef.current;
+      if (!activeBusId) return;
+      void flushPendingStop(activeBusId);
+    };
+
+    const handlePageHide = () => {
+      const activeBusId = selectedBusIdRef.current;
+      if (!isTrackingRef.current || !activeBusId) return;
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(getPendingStopKey(activeBusId), "1");
+      }
+
+      const sent = sendStopWithBeacon(activeBusId);
+      if (!sent) {
+        void flushPendingStop(activeBusId);
+      }
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [flushPendingStop, getPendingStopKey, sendStopWithBeacon, toast]);
+
+  useEffect(() => {
+    if (!selectedBusId) return;
+    if (typeof window === "undefined") return;
+    if (!navigator.onLine) return;
+    void flushPendingStop(selectedBusId);
+  }, [selectedBusId, flushPendingStop]);
 
   // تنظيف عند الخروج
   useEffect(() => {

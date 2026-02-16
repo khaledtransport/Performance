@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     }
 
     const now = Date.now();
-    const activeSessionThreshold = new Date(now - 90 * 1000); // 90 ثانية
+    const activeSessionThreshold = new Date(now - 30 * 1000); // 30 ثانية لعرض أسرع لحالة الاتصال
     const activeSessions = await prisma.trackingSession.findMany({
       where: {
         status: "ACTIVE",
