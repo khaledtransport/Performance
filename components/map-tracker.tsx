@@ -446,15 +446,10 @@ export default function MapTracker({
                 }
 
                 const refinedTargetRotation = headingToIconRotation(refinedHeading);
-                const prevIconRotation = prevIconRotationsRef.current.get(loc.busId);
-                const refinedIconRotation =
-                  refinedTargetRotation != null
-                    ? continuousRotation(prevIconRotation, refinedTargetRotation)
-                    : prevIconRotation ?? 0;
-
+                const prevIconRotation = prevIconRotationsRef.current.get(loc.busId) ?? 0;
                 const snappedRefinedRotation = refinedTargetRotation != null
                   ? snapToFourDirections(refinedTargetRotation)
-                  : snapToFourDirections(refinedIconRotation);
+                  : prevIconRotation;
                 prevIconRotationsRef.current.set(loc.busId, snappedRefinedRotation);
                 marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, snappedRefinedRotation, loc.busNumber));
               }
@@ -522,15 +517,10 @@ export default function MapTracker({
       }
 
       const targetRotation = headingToIconRotation(heading);
-      const prevIconRotation = prevIconRotationsRef.current.get(loc.busId);
-      const iconRotation =
-        targetRotation != null
-          ? continuousRotation(prevIconRotation, targetRotation)
-          : prevIconRotation ?? 0;
-
+      const prevIconRotation = prevIconRotationsRef.current.get(loc.busId) ?? 0;
       const snappedIconRotation = targetRotation != null
         ? snapToFourDirections(targetRotation)
-        : snapToFourDirections(iconRotation);
+        : prevIconRotation;
       prevIconRotationsRef.current.set(loc.busId, snappedIconRotation);
       const icon = createBusIcon(loc.isOnline, loc.busId === selectedBus, snappedIconRotation, loc.busNumber);
 
