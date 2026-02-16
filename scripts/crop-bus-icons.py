@@ -38,8 +38,8 @@ for col, row, deg in angles:
     if bbox:
         cell = cell.crop(bbox)
 
-    # Resize to 80px width for map icons
-    target_w = 80
+    # Resize to 120px width for retina map icons
+    target_w = 120
     ratio = target_w / cell.width
     target_h = int(cell.height * ratio)
     cell = cell.resize((target_w, target_h), Image.LANCZOS)
