@@ -23,174 +23,215 @@ interface MapTrackerProps {
   onSelectBus: (busId: string) => void;
 }
 
-// أيقونة سيارة UberXL ثلاثية الأبعاد - ميني فان أبيض بزاوية isometric
+// أيقونة ميني فان UberXL ثلاثية الأبعاد - منظور isometric (أعلى + جانب أيمن)
 const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
   const rotation = heading != null && heading > 0 ? heading : 0;
   const scale = isSelected ? 1.15 : 1;
-  const w = Math.round(48 * scale);
-  const h = Math.round(48 * scale);
+  const w = Math.round(52 * scale);
+  const h = Math.round(66 * scale);
   
-  // ألوان - أبيض نظيف مثل UberXL بالضبط
-  const bodyColor = isOnline ? '#F5F5F5' : '#B0BEC5';
-  const bodyShade = isOnline ? '#E0E0E0' : '#90A4AE';
-  const bodyShadow = isOnline ? '#BDBDBD' : '#78909C';
-  const bodyHighlight = isOnline ? '#FFFFFF' : '#CFD8DC';
-  const glassColor = isOnline ? '#455A64' : '#78909C';
-  const glassDark = isOnline ? '#263238' : '#607D8B';
-  const glassHighlight = isOnline ? '#546E7A' : '#90A4AE';
-  const wheelColor = '#212121';
-  const ledColor = isOnline ? '#FFFFFF' : '#90A4AE';
-  const rearLed = isOnline ? '#FF6D00' : '#90A4AE';
-  const accentColor = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
-  const shadowColor = isSelected ? 'rgba(26,115,232,0.4)' : isOnline ? 'rgba(76,175,80,0.2)' : 'rgba(0,0,0,0.08)';
-  const glowSize = isSelected ? 24 : isOnline ? 14 : 0;
-  const uid = `u${isOnline ? '1' : '0'}${isSelected ? 's' : 'n'}`;
+  // ألوان - أبيض نظيف ثلاثي الأبعاد
+  const bodyTop    = isOnline ? '#FAFAFA' : '#B0BEC5';
+  const bodyMid    = isOnline ? '#F0F0F0' : '#9EB0BA';
+  const bodySide   = isOnline ? '#E2E2E2' : '#8A9DAA';
+  const bodyShadow = isOnline ? '#CCCCCC' : '#748A96';
+  const bodyEdge   = isOnline ? '#C0C0C0' : '#607D8B';
+  const glassTop   = isOnline ? '#6B7B8D' : '#8A9DAA';
+  const glassMid   = isOnline ? '#4A5568' : '#748792';
+  const glassDark  = isOnline ? '#2D3748' : '#5A6E7C';
+  const wheelColor = '#1A1A1A';
+  const hubCap     = '#3A3A3A';
+  const hubDot     = '#5A5A5A';
+  const ledColor   = isOnline ? '#FFFFFF' : '#9E9E9E';
+  const rearLed    = isOnline ? '#FF8C00' : '#90A4AE';
+  const mirrorCol  = isOnline ? '#2D3748' : '#607D8B';
+  const accentColor  = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
+  const shadowColor  = isSelected ? 'rgba(26,115,232,0.4)' : isOnline ? 'rgba(76,175,80,0.2)' : 'rgba(0,0,0,0.06)';
+  const glowSize     = isSelected ? 22 : isOnline ? 12 : 0;
+  const uid = `v${isOnline ? '1' : '0'}${isSelected ? 's' : 'n'}`;
   
   const svgCar = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="${w}" height="${h}">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 68 86" width="${w}" height="${h}">
       <defs>
-        <!-- تدرج الجسم - أبيض ثلاثي الأبعاد -->
-        <linearGradient id="b${uid}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="${bodyHighlight}"/>
-          <stop offset="40%" stop-color="${bodyColor}"/>
-          <stop offset="100%" stop-color="${bodyShade}"/>
+        <linearGradient id="tp${uid}" x1="0" y1="0" x2="1" y2="0.8">
+          <stop offset="0%" stop-color="white" stop-opacity="0.6"/>
+          <stop offset="40%" stop-color="${bodyTop}"/>
+          <stop offset="100%" stop-color="${bodyMid}"/>
         </linearGradient>
-        <!-- تدرج السقف -->
-        <linearGradient id="r${uid}" x1="20%" y1="0%" x2="80%" y2="100%">
-          <stop offset="0%" stop-color="${bodyHighlight}"/>
-          <stop offset="50%" stop-color="${bodyColor}"/>
+        <linearGradient id="sw${uid}" x1="0" y1="0" x2="1" y2="0.5">
+          <stop offset="0%" stop-color="${bodySide}"/>
           <stop offset="100%" stop-color="${bodyShadow}"/>
         </linearGradient>
-        <!-- تدرج الزجاج -->
-        <linearGradient id="g${uid}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="${glassHighlight}"/>
-          <stop offset="50%" stop-color="${glassColor}"/>
+        <linearGradient id="gl${uid}" x1="0.2" y1="0" x2="0.8" y2="1">
+          <stop offset="0%" stop-color="${glassTop}"/>
+          <stop offset="45%" stop-color="${glassMid}"/>
           <stop offset="100%" stop-color="${glassDark}"/>
         </linearGradient>
-        <!-- لمعان -->
-        <linearGradient id="h${uid}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="white" stop-opacity="0.35"/>
+        <linearGradient id="hl${uid}" x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0%" stop-color="white" stop-opacity="0.22"/>
           <stop offset="100%" stop-color="white" stop-opacity="0"/>
         </linearGradient>
-        <!-- ظل -->
-        <filter id="d${uid}">
-          <feDropShadow dx="2" dy="3" stdDeviation="2.5" flood-color="rgba(0,0,0,0.25)"/>
+        <filter id="ds${uid}">
+          <feDropShadow dx="2" dy="3" stdDeviation="2.5" flood-color="rgba(0,0,0,0.18)"/>
         </filter>
-        <filter id="gw${uid}">
-          <feGaussianBlur stdDeviation="0.5"/>
+        <filter id="gb${uid}">
+          <feGaussianBlur stdDeviation="0.6"/>
         </filter>
       </defs>
-      
-      <!-- ظل السيارة على الأرض -->
-      <ellipse cx="26" cy="44" rx="16" ry="4" fill="rgba(0,0,0,0.1)"/>
-      
-      <!-- ===== الجسم الرئيسي - isometric 3D ===== -->
-      <!-- الجانب السفلي (الظل) -->
-      <path d="M8,28 C8,28 6,18 8,12 C10,6 14,4 24,4 C34,4 38,6 40,12 C42,18 40,28 40,28 L40,36 C40,40 38,42 24,42 C10,42 8,40 8,36 Z" 
-        fill="${bodyShadow}" filter="url(#d${uid})"/>
-      
-      <!-- الجسم الرئيسي -->
-      <path d="M9,27 C9,27 7,18 9,12 C11,7 15,5 24,5 C33,5 37,7 39,12 C41,18 39,27 39,27 L39,35 C39,38.5 37,40 24,40 C11,40 9,38.5 9,35 Z" 
-        fill="url(#b${uid})"/>
-      
-      <!-- حافة الجسم -->
-      <path d="M9,27 C9,27 7,18 9,12 C11,7 15,5 24,5 C33,5 37,7 39,12 C41,18 39,27 39,27 L39,35 C39,38.5 37,40 24,40 C11,40 9,38.5 9,35 Z" 
-        fill="none" stroke="${bodyShadow}" stroke-width="0.4" opacity="0.5"/>
 
-      <!-- ===== غطاء المحرك الأمامي - منحني مثل UberXL ===== -->
-      <path d="M12,12 C14,7.5 17,6 24,6 C31,6 34,7.5 36,12 L36,16 L12,16 Z" 
-        fill="url(#r${uid})"/>
+      <!-- ===== ظل الأرض ===== -->
+      <ellipse cx="37" cy="83" rx="24" ry="4.5" fill="rgba(0,0,0,0.07)"/>
+
+      <!-- ===== الجدار الأيمن (العمق ثلاثي الأبعاد) ===== -->
+      <path d="
+        M48,14 Q54,18 56,26
+        L56,56 Q54,66 48,72
+        L46,70 Q50,64 52,56
+        L52,26 Q50,20 46,16 Z"
+        fill="url(#sw${uid})"/>
+      <!-- حافة سفلية -->
+      <path d="
+        M18,74 Q32,80 46,74
+        L56,64 Q56,70 48,76
+        Q32,82 18,78 Q12,74 12,68 Z"
+        fill="${bodyShadow}" opacity="0.3"/>
+
+      <!-- ===== الجسم العلوي الرئيسي ===== -->
+      <path d="
+        M24,8 Q34,3 44,8
+        Q50,12 52,22 L52,56
+        Q50,66 44,72 Q34,78 24,72
+        Q16,66 14,56 L14,22
+        Q16,12 24,8 Z"
+        fill="url(#tp${uid})" filter="url(#ds${uid})"/>
+      <path d="
+        M24,8 Q34,3 44,8
+        Q50,12 52,22 L52,56
+        Q50,66 44,72 Q34,78 24,72
+        Q16,66 14,56 L14,22
+        Q16,12 24,8 Z"
+        fill="none" stroke="${bodyEdge}" stroke-width="0.4" opacity="0.4"/>
+
+      <!-- ===== غطاء المحرك ===== -->
+      <path d="
+        M26,10 Q34,6 42,10
+        Q48,14 48,20 L48,30
+        L18,30 L18,20
+        Q18,14 26,10 Z"
+        fill="url(#tp${uid})"/>
       <!-- لمعان الغطاء الأمامي -->
-      <path d="M14,9 C16,7 20,6.5 24,6.5 C26,6.5 28,7 30,8 L28,13 L16,13 Z" 
+      <path d="M28,11 Q34,8 40,11 L38,22 L24,22 Z"
         fill="white" opacity="0.2"/>
 
-      <!-- ===== الزجاج الأمامي ===== -->
-      <path d="M13,16 L35,16 L33,23 C32,24 29,25 24,25 C19,25 16,24 15,23 Z" 
-        fill="url(#g${uid})"/>
-      <!-- انعكاس الزجاج الأمامي -->
-      <path d="M15,17 L25,17 L24,22 C23,22.5 21,23 19,22.5 L17,22 Z" 
-        fill="white" opacity="0.12"/>
-      <!-- إطار الزجاج -->
-      <path d="M13,16 L35,16 L33,23 C32,24 29,25 24,25 C19,25 16,24 15,23 Z" 
-        fill="none" stroke="${bodyColor}" stroke-width="1"/>
-      
-      <!-- ===== سقف السيارة ===== -->
-      <path d="M14,25 L34,25 L34,33 C34,34 31,35 24,35 C17,35 14,34 14,33 Z" 
-        fill="url(#r${uid})"/>
-      <!-- لمعان السقف ثلاثي الأبعاد -->
-      <path d="M16,26 L24,26 L24,33 C22,33.5 18,33 16,32 Z" 
-        fill="url(#h${uid})"/>
+      <!-- ===== شريط LED الأمامي ===== -->
+      <path d="M26,7.5 Q34,3.5 42,7.5"
+        stroke="${ledColor}" stroke-width="2.5" fill="none"
+        stroke-linecap="round" filter="url(#gb${uid})"
+        opacity="${isOnline ? '1' : '0.35'}"/>
+      ${isOnline ? `
+      <path d="M28,8 Q34,5 40,8"
+        stroke="white" stroke-width="0.8" fill="none"
+        stroke-linecap="round" opacity="0.5"/>` : ''}
 
-      <!-- ===== النوافذ الجانبية ===== -->
-      <!-- جانب يسار -->
-      <path d="M12,17 L14,25 L14,33 L11,30 L10,20 Z" 
-        fill="${glassDark}" opacity="0.75"/>
-      <!-- جانب يمين -->
-      <path d="M36,17 L34,25 L34,33 L37,30 L38,20 Z" 
-        fill="${glassDark}" opacity="0.6"/>
-      
-      <!-- فواصل النوافذ الجانبية -->
-      <line x1="12.5" y1="22" x2="14" y2="29" stroke="${bodyColor}" stroke-width="0.8"/>
-      <line x1="35.5" y1="22" x2="34" y2="29" stroke="${bodyColor}" stroke-width="0.8"/>
+      <!-- ===== الزجاج الأمامي (كبير، منحني) ===== -->
+      <path d="
+        M20,30 L48,30
+        L46,44 Q44,46 34,46
+        Q22,46 20,44 Z"
+        fill="url(#gl${uid})"/>
+      <path d="
+        M20,30 L48,30
+        L46,44 Q44,46 34,46
+        Q22,46 20,44 Z"
+        fill="none" stroke="${bodyTop}" stroke-width="1.3"/>
+      <!-- انعكاس الزجاج -->
+      <path d="M24,32 L35,32 L34,42 Q30,43 26,42 Z"
+        fill="white" opacity="0.08"/>
+
+      <!-- ===== السقف ===== -->
+      <path d="
+        M22,46 L44,46
+        L44,60 Q42,62 34,62
+        Q24,62 22,60 Z"
+        fill="url(#tp${uid})"/>
+      <!-- لمعان السقف ثلاثي الأبعاد -->
+      <path d="M24,47 L34,47 L34,60 Q30,61 24,59 Z"
+        fill="url(#hl${uid})"/>
+
+      <!-- ===== نوافذ الجانب الأيمن (على الجدار) ===== -->
+      <path d="
+        M48,32 L55,26
+        L56,36 L56,54
+        L55,62 L48,58
+        L48,46 Z"
+        fill="${glassDark}" opacity="0.55"/>
+      <!-- فواصل النوافذ -->
+      <line x1="50" y1="40" x2="56" y2="38" stroke="${bodySide}" stroke-width="0.9" opacity="0.7"/>
+      <line x1="49.5" y1="50" x2="55" y2="48" stroke="${bodySide}" stroke-width="0.9" opacity="0.7"/>
+
+      <!-- ===== نوافذ الجانب الأيسر (خفيفة الرؤية) ===== -->
+      <path d="M18,32 L14,26 L14,56 L16,62 L20,58 L20,46 Z"
+        fill="${glassDark}" opacity="0.2"/>
 
       <!-- ===== الزجاج الخلفي ===== -->
-      <path d="M15,33 L33,33 L35,36 C34,37 30,38 24,38 C18,38 14,37 13,36 Z" 
-        fill="url(#g${uid})" opacity="0.7"/>
-      <!-- إطار الزجاج الخلفي -->
-      <path d="M15,33 L33,33 L35,36 C34,37 30,38 24,38 C18,38 14,37 13,36 Z" 
-        fill="none" stroke="${bodyColor}" stroke-width="0.8"/>
+      <path d="
+        M24,62 L44,62
+        L46,68 Q44,70 34,70
+        Q24,70 22,68 Z"
+        fill="url(#gl${uid})" opacity="0.6"/>
+      <path d="
+        M24,62 L44,62
+        L46,68 Q44,70 34,70
+        Q24,70 22,68 Z"
+        fill="none" stroke="${bodyTop}" stroke-width="0.8"/>
 
       <!-- ===== المؤخرة ===== -->
-      <path d="M13,36 C14,38 18,40 24,40 C30,40 34,38 35,36 L36,38 C35,40 30,41 24,41 C18,41 13,40 12,38 Z" 
-        fill="${bodyShade}"/>
+      <path d="
+        M22,70 Q24,74 34,76
+        Q44,74 46,70
+        L48,74 Q44,78 34,80
+        Q24,78 20,74 Z"
+        fill="${bodySide}"/>
 
-      <!-- ===== العجلات - دوائر سوداء واقعية ===== -->
-      <!-- أمامي يسار -->
-      <ellipse cx="11" cy="17" rx="3" ry="2.2" fill="${wheelColor}"/>
-      <ellipse cx="11" cy="17" rx="1.8" ry="1.3" fill="#333"/>
-      <ellipse cx="11" cy="17" rx="0.8" ry="0.6" fill="#555"/>
-      <!-- أمامي يمين -->
-      <ellipse cx="37" cy="17" rx="3" ry="2.2" fill="${wheelColor}"/>
-      <ellipse cx="37" cy="17" rx="1.8" ry="1.3" fill="#333"/>
-      <ellipse cx="37" cy="17" rx="0.8" ry="0.6" fill="#555"/>
-      <!-- خلفي يسار -->
-      <ellipse cx="11" cy="34" rx="3" ry="2.2" fill="${wheelColor}"/>
-      <ellipse cx="11" cy="34" rx="1.8" ry="1.3" fill="#333"/>
-      <ellipse cx="11" cy="34" rx="0.8" ry="0.6" fill="#555"/>
-      <!-- خلفي يمين -->
-      <ellipse cx="37" cy="34" rx="3" ry="2.2" fill="${wheelColor}"/>
-      <ellipse cx="37" cy="34" rx="1.8" ry="1.3" fill="#333"/>
-      <ellipse cx="37" cy="34" rx="0.8" ry="0.6" fill="#555"/>
-
-      <!-- ===== الأنوار الأمامية - شريط LED أبيض ===== -->
-      <path d="M14,10 C17,9 21,8.5 24,8.5 C27,8.5 31,9 34,10" 
-        stroke="${ledColor}" stroke-width="1.8" fill="none" stroke-linecap="round" filter="url(#gw${uid})" opacity="${isOnline ? '1' : '0.4'}"/>
-      ${isOnline ? `
-        <path d="M15,10.5 C18,9.5 21,9 24,9 C27,9 30,9.5 33,10.5" 
-          stroke="white" stroke-width="0.6" fill="none" stroke-linecap="round" opacity="0.5"/>
-      ` : ''}
-
-      <!-- ===== الأنوار الخلفية - برتقالي ===== -->
-      <circle cx="14" cy="39" r="1.2" fill="${rearLed}" opacity="0.9"/>
-      <circle cx="34" cy="39" r="1.2" fill="${rearLed}" opacity="0.9"/>
-      ${isOnline ? `
-        <circle cx="14" cy="39" r="0.6" fill="white" opacity="0.6"/>
-        <circle cx="34" cy="39" r="0.6" fill="white" opacity="0.6"/>
-      ` : ''}
+      <!-- ===== العجلات ===== -->
+      <!-- أمامي أيمن -->
+      <ellipse cx="54" cy="22" rx="4.5" ry="3.2" fill="${wheelColor}"/>
+      <ellipse cx="54" cy="22" rx="2.5" ry="1.8" fill="${hubCap}"/>
+      <circle cx="54" cy="22" r="1" fill="${hubDot}"/>
+      <!-- خلفي أيمن -->
+      <ellipse cx="55" cy="62" rx="4.5" ry="3.2" fill="${wheelColor}"/>
+      <ellipse cx="55" cy="62" rx="2.5" ry="1.8" fill="${hubCap}"/>
+      <circle cx="55" cy="62" r="1" fill="${hubDot}"/>
+      <!-- أمامي أيسر -->
+      <ellipse cx="12" cy="20" rx="4" ry="2.8" fill="${wheelColor}"/>
+      <ellipse cx="12" cy="20" rx="2.2" ry="1.5" fill="${hubCap}"/>
+      <circle cx="12" cy="20" r="0.8" fill="${hubDot}"/>
+      <!-- خلفي أيسر -->
+      <ellipse cx="12" cy="60" rx="4" ry="2.8" fill="${wheelColor}"/>
+      <ellipse cx="12" cy="60" rx="2.2" ry="1.5" fill="${hubCap}"/>
+      <circle cx="12" cy="60" r="0.8" fill="${hubDot}"/>
 
       <!-- ===== المرايا الجانبية ===== -->
-      <ellipse cx="9" cy="18" rx="1.5" ry="1" fill="${bodyShade}" stroke="${bodyShadow}" stroke-width="0.3"/>
-      <ellipse cx="39" cy="18" rx="1.5" ry="1" fill="${bodyColor}" stroke="${bodyShadow}" stroke-width="0.3"/>
+      <ellipse cx="10" cy="32" rx="2.5" ry="1.4" fill="${mirrorCol}" stroke="${bodyEdge}" stroke-width="0.3"/>
+      <ellipse cx="56" cy="28" rx="2.5" ry="1.4" fill="${mirrorCol}" stroke="${bodyEdge}" stroke-width="0.3"/>
 
-      <!-- ===== لمعان ثلاثي الأبعاد على الجسم ===== -->
-      <path d="M16,7 C18,6 22,5.5 24,5.5 C25,5.5 26,5.5 27,6 L26,11 L18,11 Z" 
-        fill="white" opacity="0.15"/>
-      <!-- لمعان الجانب -->
-      <path d="M10,14 L11,24 L10,30 L9,22 Z" fill="white" opacity="0.06"/>
+      <!-- ===== الإشارات الخلفية (برتقالي) ===== -->
+      <circle cx="24" cy="75" r="1.6" fill="${rearLed}" opacity="0.9"/>
+      <circle cx="44" cy="75" r="1.6" fill="${rearLed}" opacity="0.9"/>
+      ${isOnline ? `
+      <circle cx="24" cy="75" r="0.7" fill="white" opacity="0.5"/>
+      <circle cx="44" cy="75" r="0.7" fill="white" opacity="0.5"/>` : ''}
+
+      <!-- ===== لمعان ثلاثي الأبعاد ===== -->
+      <path d="M28,6 Q34,4 40,6 L38,14 L26,14 Z"
+        fill="white" opacity="0.14"/>
+      <path d="M16,16 L14,30 L14,44 L16,48 L18,38 L18,22 Z"
+        fill="white" opacity="0.05"/>
 
       ${isSelected ? `
-        <ellipse cx="24" cy="24" rx="24" ry="22" fill="none" stroke="${accentColor}" stroke-width="1.2" opacity="0.35" stroke-dasharray="3,2.5"/>
-      ` : ''}
+      <ellipse cx="34" cy="42" rx="36" ry="44"
+        fill="none" stroke="${accentColor}" stroke-width="1.2"
+        opacity="0.35" stroke-dasharray="3,2.5"/>` : ''}
     </svg>
   `;
 
@@ -200,8 +241,8 @@ const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number 
     className: "bus-3d-icon",
     html: `
       <div style="
-        position: relative; 
-        width: ${w + glowSize * 2}px; 
+        position: relative;
+        width: ${w + glowSize * 2}px;
         height: ${h + glowSize * 2}px;
         margin-left: -${glowSize}px;
         margin-top: -${glowSize}px;
@@ -227,25 +268,25 @@ const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number 
           transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
           cursor: pointer;
           z-index: 10;
-          filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25));
+          filter: drop-shadow(0 4px 10px rgba(0,0,0,0.22));
         ">
           <img src="data:image/svg+xml,${encodedSvg}" width="${w}" height="${h}" style="display:block;" />
         </div>
         ${busNumber ? `
         <div style="
           position: absolute;
-          bottom: ${glowSize - 12}px;
+          bottom: ${glowSize - 14}px;
           left: 50%;
           transform: translateX(-50%);
-          background: ${isOnline ? 'rgba(255,255,255,0.95)' : 'rgba(176,190,197,0.9)'};
-          color: ${isOnline ? '#1A1A2E' : '#546E7A'};
+          background: rgba(255,255,255,0.95);
+          color: #1A1A2E;
           font-size: 9px;
           font-weight: 800;
-          padding: 1.5px 7px;
+          padding: 2px 8px;
           border-radius: 8px;
           white-space: nowrap;
           z-index: 20;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.18);
           border: 1px solid ${isOnline ? '#E0E0E0' : '#B0BEC5'};
           letter-spacing: 0.3px;
         ">${busNumber}</div>` : ''}
@@ -253,7 +294,7 @@ const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number 
       <style>
         @keyframes busGlow {
           0%, 100% { opacity: 0.7; transform: scale(1); }
-          50% { opacity: 0.3; transform: scale(1.08); }
+          50% { opacity: 0.3; transform: scale(1.06); }
         }
         .bus-3d-icon { background: none !important; border: none !important; }
       </style>
