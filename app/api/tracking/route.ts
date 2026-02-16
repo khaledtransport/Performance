@@ -57,6 +57,18 @@ export async function GET(request: Request) {
       });
     }
 
+    const now = Date.now();
+    const activeSessionThreshold = new Date(now - 90 * 1000); // 90 ثانية
+    const activeSessions = await prisma.trackingSession.findMany({
+      where: {
+        status: "ACTIVE",
+        endedAt: null,
+        lastPointAt: { gte: activeSessionThreshold },
+      },
+      select: { busId: true },
+    });
+    const activeBusSet = new Set(activeSessions.map((s) => s.busId));
+
     // آخر موقع لكل باص نشط
     const buses = await prisma.bus.findMany({
       where: { isActive: true },
@@ -86,9 +98,7 @@ export async function GET(request: Request) {
         heading: loc?.heading ?? null,
         accuracy: loc?.accuracy ?? null,
         lastUpdate: loc?.timestamp ?? bus.createdAt,
-        isOnline: hasLocation && 
-          new Date().getTime() - new Date(loc!.timestamp).getTime() <
-          5 * 60 * 1000, // آخر 5 دقائق
+        isOnline: activeBusSet.has(bus.id),
         hasLocation, // هل يوجد موقع حقيقي
       };
     });
@@ -103,6 +113,90 @@ export async function GET(request: Request) {
     console.error("Tracking GET error:", error);
     return NextResponse.json(
       { error: "فشل جلب بيانات التتبع" },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH: تحديث حالة التتبع (بدء/إيقاف) بشكل لحظي
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { busId, action } = body as { busId?: string; action?: "start" | "stop" };
+
+    if (!busId || !action) {
+      return NextResponse.json(
+        { error: "busId و action مطلوبان" },
+        { status: 400 }
+      );
+    }
+
+    const bus = await prisma.bus.findUnique({ where: { id: busId }, select: { id: true } });
+    if (!bus) {
+      return NextResponse.json({ error: "الباص غير موجود" }, { status: 404 });
+    }
+
+    const now = new Date();
+
+    if (action === "stop") {
+      await prisma.trackingSession.updateMany({
+        where: {
+          busId,
+          status: "ACTIVE",
+          endedAt: null,
+        },
+        data: {
+          status: "ENDED",
+          endedAt: now,
+          lastPointAt: now,
+        },
+      });
+
+      apiCache.delete("tracking:all");
+      return NextResponse.json({ success: true, status: "ENDED" });
+    }
+
+    // action === "start"
+    const existing = await prisma.trackingSession.findFirst({
+      where: {
+        busId,
+        status: "ACTIVE",
+        endedAt: null,
+      },
+      orderBy: { lastPointAt: "desc" },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      const activeRoute = await prisma.route.findFirst({
+        where: { busId, isActive: true },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true },
+      });
+
+      await prisma.trackingSession.create({
+        data: {
+          busId,
+          routeId: activeRoute?.id ?? null,
+          startedAt: now,
+          lastPointAt: now,
+          status: "ACTIVE",
+          source: "DRIVER_APP",
+        },
+      });
+    } else {
+      await prisma.trackingSession.update({
+        where: { id: existing.id },
+        data: { lastPointAt: now },
+      });
+    }
+
+    apiCache.delete("tracking:all");
+    return NextResponse.json({ success: true, status: "ACTIVE" });
+  } catch (error) {
+    console.error("Tracking PATCH error:", error);
+    return NextResponse.json(
+      { error: "فشل تحديث حالة التتبع" },
       { status: 500 }
     );
   }

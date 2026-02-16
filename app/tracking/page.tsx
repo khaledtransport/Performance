@@ -55,7 +55,9 @@ export default function TrackingPage() {
 
   const fetchLocations = useCallback(async () => {
     try {
-      const res = await fetch("/Performance/api/tracking");
+      const res = await fetch(`/Performance/api/tracking?ts=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setLocations(data);
@@ -73,7 +75,7 @@ export default function TrackingPage() {
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(fetchLocations, 5000); // كل 5 ثوان
+    const interval = setInterval(fetchLocations, 2000); // كل ثانيتين
     return () => clearInterval(interval);
   }, [autoRefresh, fetchLocations]);
 

@@ -244,6 +244,22 @@ export default function DriverTrackingPage() {
     [selectedBusId]
   );
 
+  const setTrackingStatus = useCallback(
+    async (action: "start" | "stop") => {
+      if (!selectedBusId) return;
+      try {
+        await fetch("/Performance/api/tracking", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ busId: selectedBusId, action }),
+        });
+      } catch (error) {
+        console.error(`Failed to set tracking status (${action}):`, error);
+      }
+    },
+    [selectedBusId]
+  );
+
   // بدء التتبع
   const startTracking = useCallback(() => {
     if (!selectedBusId) {
@@ -268,6 +284,7 @@ export default function DriverTrackingPage() {
     setGpsError(null);
     setIsTracking(true);
     setSendCount(0);
+    void setTrackingStatus("start");
 
     toast({
       title: "تم بدء التتبع ✅",
@@ -351,7 +368,7 @@ export default function DriverTrackingPage() {
       },
       { enableHighAccuracy: true, timeout: 15000 }
     );
-  }, [selectedBusId, sendLocation, toast, permissionStatus]);
+  }, [selectedBusId, sendLocation, toast, permissionStatus, setTrackingStatus]);
 
   // إيقاف التتبع
   const stopTracking = useCallback(() => {
@@ -365,11 +382,12 @@ export default function DriverTrackingPage() {
     }
     lastPositionRef.current = null;
     setIsTracking(false);
+    void setTrackingStatus("stop");
     toast({
       title: "تم إيقاف التتبع",
       description: `تم إرسال ${sendCount} تحديث للموقع`,
     });
-  }, [sendCount, toast]);
+  }, [sendCount, toast, setTrackingStatus]);
 
   // تنظيف عند الخروج
   useEffect(() => {
