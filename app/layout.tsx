@@ -6,6 +6,7 @@ import { Breadcrumb } from "@/components/breadcrumb";
 import { AuthProvider } from "@/hooks/use-auth";
 import { PWAInstallPrompt } from "@/components/pwa-install";
 import { PWAPermissionsPrompt } from "@/components/pwa-permissions";
+import { PushRegistration } from "@/components/push-registration";
 import { Toaster } from "@/components/ui/toaster";
 
 const cairo = Cairo({
@@ -55,6 +56,7 @@ export default function RootLayout({
           </div>
           <PWAInstallPrompt />
           <PWAPermissionsPrompt />
+          <PushRegistration />
           <Toaster />
         </AuthProvider>
       </body>

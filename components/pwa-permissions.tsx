@@ -71,6 +71,7 @@ export function PWAPermissionsPrompt() {
     try {
       const result = await Notification.requestPermission();
       setNotifState(result as PermissionStateLocal);
+      window.dispatchEvent(new Event("notification-permission-updated"));
     } finally {
       setLoadingNotif(false);
     }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "university-transport-v7";
+const CACHE_NAME = "university-transport-v8";
 const OFFLINE_URL = "/Performance/offline";
 
 // الملفات الثابتة للتخزين المسبق
@@ -69,5 +69,46 @@ self.addEventListener("fetch", (event) => {
           return new Response("غير متاح", { status: 503 });
         })
       )
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { title: "إشعار جديد", body: "لديك تحديث جديد" };
+  }
+
+  const title = payload.title || "إشعار جديد";
+  const options = {
+    body: payload.body || "لديك إشعار جديد",
+    icon: payload.icon || "/Performance/icons/icon-192x192.png",
+    badge: payload.badge || "/Performance/icons/icon-192x192.png",
+    tag: payload.tag || "transport-notification",
+    dir: payload.dir || "rtl",
+    data: {
+      link: payload.link || "/Performance/dashboard",
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification?.data?.link || "/Performance/dashboard";
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.includes("/Performance") && "focus" in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(targetUrl);
+    })
   );
 });

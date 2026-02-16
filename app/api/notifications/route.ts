@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { sendPushToUsers } from "@/lib/web-push";
 
 // GET: جلب الإشعارات
 export async function GET(request: Request) {
@@ -96,6 +97,20 @@ export async function POST(request: Request) {
         })),
       });
 
+      try {
+        await sendPushToUsers(
+          drivers.map((driver) => driver.id),
+          {
+            title,
+            message,
+            link: link || null,
+            tag: type || "INFO",
+          }
+        );
+      } catch (pushError) {
+        console.error("Push delivery failed (ALL_DRIVERS):", pushError);
+      }
+
       return NextResponse.json(
         { success: true, count: notifications.count, message: `تم إرسال الإشعار إلى ${notifications.count} سائق` },
         { status: 201 }
@@ -117,6 +132,17 @@ export async function POST(request: Request) {
         })),
       });
 
+      try {
+        await sendPushToUsers(body.driverIds, {
+          title,
+          message,
+          link: link || null,
+          tag: type || "INFO",
+        });
+      } catch (pushError) {
+        console.error("Push delivery failed (SELECTED_DRIVERS):", pushError);
+      }
+
       return NextResponse.json(
         { success: true, count: notifications.count, message: `تم إرسال الإشعار إلى ${notifications.count} سائق` },
         { status: 201 }
@@ -136,6 +162,38 @@ export async function POST(request: Request) {
         link: link || null,
       },
     });
+
+    if (userId) {
+      try {
+        await sendPushToUsers([userId], {
+          title,
+          message,
+          link: link || null,
+          tag: type || "INFO",
+        });
+      } catch (pushError) {
+        console.error("Push delivery failed (single):", pushError);
+      }
+    } else {
+      const activeUsers = await prisma.user.findMany({
+        where: { isActive: true },
+        select: { id: true },
+      });
+
+      try {
+        await sendPushToUsers(
+          activeUsers.map((user) => user.id),
+          {
+            title,
+            message,
+            link: link || null,
+            tag: type || "INFO",
+          }
+        );
+      } catch (pushError) {
+        console.error("Push delivery failed (broadcast):", pushError);
+      }
+    }
 
     return NextResponse.json(notification, { status: 201 });
   } catch (error) {

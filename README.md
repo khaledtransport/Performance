@@ -50,6 +50,12 @@ cp .env.example .env
 
 # تعديل ملف .env وإضافة رابط قاعدة البيانات
 # DATABASE_URL="postgresql://user:password@localhost:5432/university_transport?schema=public"
+
+# مفاتيح Push للجوال (PWA)
+# أنشئها عبر: npx web-push generate-vapid-keys
+# NEXT_PUBLIC_VAPID_PUBLIC_KEY="..."
+# VAPID_PRIVATE_KEY="..."
+# VAPID_SUBJECT="mailto:admin@example.com"
 ```
 
 ```bash
