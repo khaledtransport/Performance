@@ -74,7 +74,7 @@ export default function DriverTrackingPage() {
   const [permissionStatus, setPermissionStatus] = useState<string>("checking");
   // "checking" | "granted" | "denied" | "prompt" | "unsupported"
   const [gpsQuality, setGpsQuality] = useState<"excellent" | "good" | "poor" | "cell-tower" | "unknown">("unknown");
-  // excellent: <20m, good: <100m, poor: <500m, cell-tower: >=500m
+  // excellent: <20m, good: <100m, poor: <300m, cell-tower: >=300m
 
   // المراجع
   const watchIdRef = useRef<number | null>(null);
@@ -232,7 +232,7 @@ export default function DriverTrackingPage() {
     if (acc === null) return "unknown";
     if (acc <= 20) return "excellent";
     if (acc <= 100) return "good";
-    if (acc < 500) return "poor";
+    if (acc < 300) return "poor";
     return "cell-tower";
   }, []);
 
@@ -241,7 +241,7 @@ export default function DriverTrackingPage() {
     async (pos: FullPosition) => {
       if (!selectedBusId) return;
 
-      // إذا كان الموقع من برج خلوي (دقة >= 500م) ويوجد موقع GPS أفضل سابق، أرسل الأفضل
+      // إذا كان الموقع من برج خلوي (دقة >= 300م) ويوجد موقع GPS أفضل سابق، أرسل الأفضل
       const quality = classifyGpsQuality(pos.accuracy);
       let posToSend = pos;
 
@@ -250,7 +250,7 @@ export default function DriverTrackingPage() {
         posToSend = bestPositionRef.current;
       }
 
-      // إذا كان الموقع دقيقاً (< 500م)، احفظه كأفضل موقع
+      // إذا كان الموقع دقيقاً (< 300م)، احفظه كأفضل موقع
       if (quality !== "cell-tower" && quality !== "unknown") {
         bestPositionRef.current = pos;
       }
@@ -390,7 +390,7 @@ export default function DriverTrackingPage() {
         const fullPos: FullPosition = { lat, lng, speed: spd, heading: hdg, accuracy: acc };
         lastPositionRef.current = fullPos;
 
-        // حفظ أفضل موقع GPS (دقة < 500م) للاستخدام عند سقوط GPS
+        // حفظ أفضل موقع GPS (دقة < 300م) للاستخدام عند سقوط GPS
         if (quality !== "cell-tower" && quality !== "unknown") {
           bestPositionRef.current = fullPos;
         }

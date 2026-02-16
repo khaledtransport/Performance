@@ -102,7 +102,7 @@ export async function GET(request: Request) {
         lastUpdate: latestLoc?.timestamp ?? bus.createdAt,
         isOnline: activeBusSet.has(bus.id),
         hasLocation, // هل يوجد موقع حقيقي
-        isCellTower: latestLoc?.accuracy != null && latestLoc.accuracy >= 500, // هل الموقع من برج خلوي
+        isCellTower: latestLoc?.accuracy != null && latestLoc.accuracy >= 300, // هل الموقع غير دقيق (برج خلوي أو ضعيف)
       };
     });
 
