@@ -50,6 +50,14 @@ interface FullPosition {
   accuracy: number | null;
 }
 
+function classifyGpsAccuracy(acc: number | null): "excellent" | "good" | "poor" | "cell-tower" | "unknown" {
+  if (acc === null) return "unknown";
+  if (acc <= 20) return "excellent";
+  if (acc <= 100) return "good";
+  if (acc < 300) return "poor";
+  return "cell-tower";
+}
+
 // حساب المسافة بين نقطتين باستخدام صيغة Haversine (بالمتر)
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000; // نصف قطر الأرض بالمتر
@@ -150,7 +158,7 @@ export default function DriverTrackingPage() {
                   setSpeed(position.coords.speed);
                   setHeading(position.coords.heading);
                   setAccuracy(position.coords.accuracy);
-                  setGpsQuality(classifyGpsQuality(position.coords.accuracy));
+                  setGpsQuality(classifyGpsAccuracy(position.coords.accuracy));
                   setGpsError(null);
                 },
                 () => {},
@@ -175,7 +183,7 @@ export default function DriverTrackingPage() {
               setSpeed(position.coords.speed);
               setHeading(position.coords.heading);
               setAccuracy(position.coords.accuracy);
-              setGpsQuality(classifyGpsQuality(position.coords.accuracy));
+              setGpsQuality(classifyGpsAccuracy(position.coords.accuracy));
               setGpsError(null);
             },
             (error) => {
@@ -214,7 +222,7 @@ export default function DriverTrackingPage() {
     }
 
     checkAndRequest();
-  }, [classifyGpsQuality]);
+  }, []);
 
   // جلب بيانات الباص المخصص للسائق
   useEffect(() => {
@@ -248,11 +256,7 @@ export default function DriverTrackingPage() {
 
   // تصنيف جودة GPS بناءً على الدقة
   const classifyGpsQuality = useCallback((acc: number | null): "excellent" | "good" | "poor" | "cell-tower" | "unknown" => {
-    if (acc === null) return "unknown";
-    if (acc <= 20) return "excellent";
-    if (acc <= 100) return "good";
-    if (acc < 300) return "poor";
-    return "cell-tower";
+    return classifyGpsAccuracy(acc);
   }, []);
 
   // إرسال الموقع إلى الخادم — يرسل أفضل موقع GPS متاح
