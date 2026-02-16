@@ -40,11 +40,11 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
-      // كاش للأيقونات والصور
+      // الأيقونات — كاش قصير مع إعادة تحقق
       {
         source: '/icons/:path*',
         headers: [
-          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+          { key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
         ],
       },
       // كاش قصير لـ API التتبع (بيانات حية)

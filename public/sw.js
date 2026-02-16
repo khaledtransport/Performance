@@ -1,4 +1,4 @@
-const CACHE_NAME = "university-transport-v6";
+const CACHE_NAME = "university-transport-v7";
 const OFFLINE_URL = "/Performance/offline";
 
 // الملفات الثابتة للتخزين المسبق
@@ -31,9 +31,9 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
 
-  // تخطي: API، WebSocket، webpack HMR، chrome-extension
+  // تخطي: API، icons، WebSocket، webpack HMR، chrome-extension
   const url = request.url;
-  if (url.includes("/api/") || url.startsWith("chrome-extension") || url.includes("_next/webpack")) return;
+  if (url.includes("/api/") || url.includes("/icons/") || url.startsWith("chrome-extension") || url.includes("_next/webpack")) return;
 
   // ملفات Next.js الثابتة (hashed) — Cache-First (لا تتغير أبداً)
   if (url.includes("/_next/static/")) {
