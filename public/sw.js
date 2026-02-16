@@ -1,9 +1,8 @@
-const CACHE_NAME = "university-transport-v8";
+const CACHE_NAME = "university-transport-v9";
 const OFFLINE_URL = "/Performance/offline";
 
 // الملفات الثابتة للتخزين المسبق
 const STATIC_ASSETS = [
-  "/Performance",
   "/Performance/offline",
   "/Performance/manifest.json",
 ];
@@ -33,21 +32,36 @@ self.addEventListener("fetch", (event) => {
 
   // تخطي: API، icons، WebSocket، webpack HMR، chrome-extension
   const url = request.url;
-  if (url.includes("/api/") || url.includes("/icons/") || url.startsWith("chrome-extension") || url.includes("_next/webpack")) return;
+  if (
+    url.includes("/api/") ||
+    url.includes("/icons/") ||
+    url.startsWith("chrome-extension") ||
+    url.includes("_next/webpack") ||
+    url.includes("_rsc=")
+  ) {
+    return;
+  }
 
-  // ملفات Next.js الثابتة (hashed) — Cache-First (لا تتغير أبداً)
+  // صفحات التنقل: Network-Only مع fallback أوفلاين (تجنب HTML قديم بعد النشر)
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request).catch(() => caches.match(OFFLINE_URL))
+    );
+    return;
+  }
+
+  // ملفات Next.js الثابتة (hashed) — Network-First ثم fallback للكاش
   if (url.includes("/_next/static/")) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((res) => {
+      fetch(request)
+        .then((res) => {
           if (res.status === 200) {
             const clone = res.clone();
             caches.open(CACHE_NAME).then((c) => c.put(request, clone));
           }
           return res;
-        });
-      })
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }

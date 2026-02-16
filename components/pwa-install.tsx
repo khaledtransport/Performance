@@ -19,7 +19,8 @@ export function PWAInstallPrompt() {
     // تسجيل Service Worker
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("/Performance/sw.js")
+        .register("/Performance/sw.js", { updateViaCache: "none" })
+        .then((registration) => registration.update())
         .catch((err) => console.log("SW registration failed:", err));
     }
 

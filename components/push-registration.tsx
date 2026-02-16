@@ -26,7 +26,10 @@ export function PushRegistration() {
 
     inFlight.current = true;
     try {
-      await navigator.serviceWorker.register("/Performance/sw.js");
+      const registration = await navigator.serviceWorker.register("/Performance/sw.js", {
+        updateViaCache: "none",
+      });
+      await registration.update();
       const swRegistration = await navigator.serviceWorker.ready;
 
       const keyRes = await fetch("/Performance/api/push/public-key", {
