@@ -269,8 +269,12 @@ export default function DriverTrackingPage() {
       let posToSend = pos;
 
       if (quality === "cell-tower" && bestPositionRef.current) {
-        // أرسل آخر موقع GPS دقيق بدلاً من موقع البرج
-        posToSend = bestPositionRef.current;
+        // أرسل آخر موقع GPS دقيق للإحداثيات، لكن احتفظ باتجاه الجوال الحالي (مهم عند اليوترن)
+        posToSend = {
+          ...bestPositionRef.current,
+          heading: pos.heading ?? bestPositionRef.current.heading,
+          speed: pos.speed ?? bestPositionRef.current.speed,
+        };
       }
 
       // إذا كان الموقع دقيقاً (< 300م)، احفظه كأفضل موقع

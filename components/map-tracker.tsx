@@ -546,7 +546,8 @@ export default function MapTracker({
 
       if (heading != null && lastStableHeading != null) {
         const delta = shortestAngleDelta(lastStableHeading, heading);
-        const maxStep = 35;
+        const isUTurnLike = Math.abs(delta) >= 120 && movedMeters >= 8;
+        const maxStep = isUTurnLike ? 180 : 70;
         if (Math.abs(delta) > maxStep) {
           heading = normalizeHeading(lastStableHeading + Math.sign(delta) * maxStep);
         }
