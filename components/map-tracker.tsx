@@ -12,6 +12,7 @@ interface BusLocationData {
   longitude: number;
   speed: number | null;
   heading: number | null;
+  accuracy?: number | null;
   lastUpdate: string;
   isOnline: boolean;
   hasLocation?: boolean;
@@ -55,18 +56,27 @@ const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number 
   const totalH = boxSize + (busNumber ? 15 : 0);
   const imgLeft = (diagonal - w) / 2;
   const imgTop = (diagonal - h) / 2;
+  const glowColor = isOnline ? 'rgba(34,197,94,0.45)' : 'rgba(120,120,120,0.2)';
+  const glowScale = isSelected ? 1.2 : 1;
 
   return L.divIcon({
     className: "bus-marker-icon",
     html: `
       <div style="position:relative;width:${totalW}px;height:${totalH}px;">
+        ${isOnline ? `<div style="position:absolute;left:${pad + diagonal / 2 - 14 * glowScale}px;top:${pad + diagonal / 2 + 2}px;width:${28 * glowScale}px;height:${9 * glowScale}px;border-radius:50%;background:${glowColor};filter:blur(1.8px);animation:busPulse 1.6s ease-in-out infinite;z-index:1;pointer-events:none;"></div>` : ''}
         <div style="position:absolute;top:${pad}px;left:${pad}px;width:${diagonal}px;height:${diagonal}px;transform:rotate(${rotation}deg);transform-origin:center center;transition:transform 0.8s cubic-bezier(0.4,0,0.2,1);cursor:pointer;z-index:10;">
           <img src="${BUS_ICON_URL}" width="${w}" height="${h}" style="position:absolute;top:${imgTop}px;left:${imgLeft}px;display:block;opacity:${opacity};filter:drop-shadow(1px 2px 3px rgba(0,0,0,0.4))${!isOnline ? ' grayscale(0.4)' : ''};pointer-events:none;" crossorigin="anonymous"/>
         </div>
         ${isSelected ? `<div style="position:absolute;top:0;left:0;width:${boxSize}px;height:${boxSize}px;border:2px solid ${accent};border-radius:50%;opacity:0.5;pointer-events:none;"></div>` : ''}
         ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.92);color:#333;font-size:7.5px;font-weight:700;padding:1px 4px;border-radius:4px;white-space:nowrap;z-index:20;box-shadow:0 1px 2px rgba(0,0,0,0.15);border:1px solid #ddd;">${busNumber}</div>` : ''}
       </div>
-      <style>.bus-marker-icon{background:none!important;border:none!important;}</style>
+      <style>
+        .bus-marker-icon{background:none!important;border:none!important;}
+        @keyframes busPulse {
+          0%, 100% { transform: scale(0.95); opacity: 0.5; }
+          50% { transform: scale(1.18); opacity: 0.95; }
+        }
+      </style>
     `,
     iconSize: [totalW, totalH],
     iconAnchor: [totalW / 2, boxSize / 2],
@@ -428,9 +438,11 @@ export default function MapTracker({
 
       // محاولة مطابقة الموقع مع الطريق (Map Matching) لتحسين منطق الحركة مثل تطبيقات الأجرة
       const speedValue = typeof loc.speed === 'number' && Number.isFinite(loc.speed) ? loc.speed : null;
+      const accuracyValue = typeof loc.accuracy === 'number' && Number.isFinite(loc.accuracy) ? loc.accuracy : null;
       if (loc.isOnline && prev && !roadSnapInFlightRef.current.has(loc.busId)) {
         const movedMeters = distanceMeters(prev.lat, prev.lng, loc.latitude, loc.longitude);
-        if (movedMeters >= 10 && (speedValue ?? 0) >= 8) {
+        const shouldSnap = movedMeters >= 20 && (speedValue ?? 0) >= 12 && (accuracyValue == null || accuracyValue > 35);
+        if (shouldSnap) {
           roadSnapInFlightRef.current.add(loc.busId);
           const coords = `${prev.lng},${prev.lat};${loc.longitude},${loc.latitude}`;
           fetch(`https://router.project-osrm.org/match/v1/driving/${coords}?geometries=geojson&overview=full&steps=false&radiuses=35;35`)
@@ -442,6 +454,12 @@ export default function MapTracker({
               if (Array.isArray(tracePoint) && tracePoint.length >= 2) {
                 snappedLng = tracePoint[0];
                 snappedLat = tracePoint[1];
+              }
+
+              // حماية من انحرافات المطابقة: تجاهل snap إذا كان بعيداً عن GPS الحقيقي
+              const snapOffset = distanceMeters(loc.latitude, loc.longitude, snappedLat, snappedLng);
+              if (snapOffset > 45) {
+                return;
               }
 
               let roadHeading: number | null = null;
@@ -492,9 +510,10 @@ export default function MapTracker({
       }
 
       const roadSnap = roadSnapRef.current.get(loc.busId);
-      const hasFreshRoadSnap = !!roadSnap && now - roadSnap.updatedAt <= 20000;
-      const displayLat = hasFreshRoadSnap ? roadSnap!.lat : loc.latitude;
-      const displayLng = hasFreshRoadSnap ? roadSnap!.lng : loc.longitude;
+      const hasFreshRoadSnap = !!roadSnap && now - roadSnap.updatedAt <= 9000;
+      const canUseSnapPosition = hasFreshRoadSnap && (accuracyValue == null || accuracyValue > 35);
+      const displayLat = canUseSnapPosition ? (loc.latitude * 0.7 + roadSnap!.lat * 0.3) : loc.latitude;
+      const displayLng = canUseSnapPosition ? (loc.longitude * 0.7 + roadSnap!.lng * 0.3) : loc.longitude;
       
       // اتجاه منطقي: نعتمد على حركة المسار أولاً، مع تنعيم الزاوية ومنع القفزات
       const sensorHeading =
@@ -561,7 +580,7 @@ export default function MapTracker({
               display: flex; align-items: center; justify-content: center;
               box-shadow: 0 2px 8px rgba(249,168,37,0.3);
             ">
-              <span style="font-size: 22px;">🚌</span>
+              <img src="${BUS_ICON_URL}" width="30" height="20" style="display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2));" />
             </div>
             <div>
               <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #0f172a;">باص ${loc.busNumber}</h3>
@@ -586,6 +605,10 @@ export default function MapTracker({
             <div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 13px; color: #94a3b8;">
               <span>منذ ${timeAgo}</span>
               <span>🕐 آخر تحديث</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; color: #94a3b8;">
+              <span>${accuracyValue != null ? `${accuracyValue.toFixed(0)} م` : '—'}</span>
+              <span>🎯 دقة GPS</span>
             </div>
           </div>
         </div>

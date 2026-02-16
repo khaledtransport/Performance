@@ -84,6 +84,7 @@ export async function GET(request: Request) {
         longitude: loc?.longitude ?? 39.1925,
         speed: loc?.speed ?? 0,
         heading: loc?.heading ?? null,
+        accuracy: loc?.accuracy ?? null,
         lastUpdate: loc?.timestamp ?? bus.createdAt,
         isOnline: hasLocation && 
           new Date().getTime() - new Date(loc!.timestamp).getTime() <
