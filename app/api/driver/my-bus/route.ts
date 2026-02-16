@@ -18,6 +18,10 @@ async function getActiveBuses() {
   }));
 }
 
+function normalizeArabicText(value: string | null | undefined) {
+  return (value || "").trim().replace(/\s+/g, " ");
+}
+
 // GET: الحصول على الباص المخصص للسائق الحالي عبر ربط User → Driver → Assignment
 export async function GET() {
   try {
@@ -56,15 +60,21 @@ export async function GET() {
     let driver = fullUser.driver;
 
     if (!driver && fullUser.role === "DRIVER") {
-      const normalizedName = fullUser.fullName.trim();
+      const normalizedName = normalizeArabicText(fullUser.fullName);
+      const normalizedUsername = normalizeArabicText(fullUser.username);
+      const candidateNames = Array.from(
+        new Set([normalizedName, normalizedUsername].filter(Boolean))
+      );
 
-      if (normalizedName) {
+      if (candidateNames.length > 0) {
         const matchedDrivers = await prisma.driver.findMany({
           where: {
-            name: {
-              equals: normalizedName,
-              mode: "insensitive",
-            },
+            OR: candidateNames.map((candidate) => ({
+              name: {
+                equals: candidate,
+                mode: "insensitive",
+              },
+            })),
           },
           include: {
             assignments: {
@@ -84,6 +94,13 @@ export async function GET() {
 
         if (matchedDrivers.length === 1) {
           driver = matchedDrivers[0];
+
+          if (!fullUser.driverId) {
+            await prisma.user.update({
+              where: { id: fullUser.id },
+              data: { driverId: driver.id },
+            });
+          }
         }
       }
     }
