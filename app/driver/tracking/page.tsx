@@ -148,10 +148,11 @@ export default function DriverTrackingPage() {
                   setSpeed(position.coords.speed);
                   setHeading(position.coords.heading);
                   setAccuracy(position.coords.accuracy);
+                  setGpsQuality(classifyGpsQuality(position.coords.accuracy));
                   setGpsError(null);
                 },
                 () => {},
-                { enableHighAccuracy: true, timeout: 10000 }
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
               );
             }
           });
@@ -172,6 +173,7 @@ export default function DriverTrackingPage() {
               setSpeed(position.coords.speed);
               setHeading(position.coords.heading);
               setAccuracy(position.coords.accuracy);
+              setGpsQuality(classifyGpsQuality(position.coords.accuracy));
               setGpsError(null);
             },
             (error) => {
@@ -193,12 +195,12 @@ export default function DriverTrackingPage() {
                       setGpsError(null);
                     },
                     () => {},
-                    { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                   );
                 }, 2000);
               }
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
           );
         } catch (e) {
           console.error("Geolocation error:", e);
@@ -210,7 +212,7 @@ export default function DriverTrackingPage() {
     }
 
     checkAndRequest();
-  }, []);
+  }, [classifyGpsQuality]);
 
   // جلب بيانات الباص المخصص للسائق
   useEffect(() => {
@@ -710,6 +712,14 @@ export default function DriverTrackingPage() {
         setGpsError(null);
         setLatitude(position.coords.latitude);
         setLongitude(position.coords.longitude);
+        setSpeed(position.coords.speed);
+        setHeading(position.coords.heading);
+        setAccuracy(position.coords.accuracy);
+        setGpsQuality(classifyGpsQuality(position.coords.accuracy));
+
+        if (position.coords.accuracy >= 300) {
+          setGpsError("تم منح إذن الموقع لكن الدقة ما زالت منخفضة (موقع تقريبي). فعّل 'الموقع الدقيق' من إعدادات الهاتف للحصول على دقة أعلى.");
+        }
         toast({ title: "تم السماح بالموقع ✅", description: "يمكنك الآن بدء التتبع" });
       },
       (error) => {
@@ -731,9 +741,9 @@ export default function DriverTrackingPage() {
           setGpsError("الموقع غير متاح. تأكد من تفعيل GPS من إعدادات الجوال");
         }
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
-  }, [toast, getBrowserInfo]);
+  }, [toast, getBrowserInfo, classifyGpsQuality]);
 
   if (authLoading || loadingBus) {
     return (
@@ -869,6 +879,20 @@ export default function DriverTrackingPage() {
                 </Button>
               )}
             </div>
+
+            {permissionStatus === "granted" && (gpsQuality === "poor" || gpsQuality === "cell-tower") && (
+              <div className="mt-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                <p className="font-bold text-amber-700 dark:text-amber-400 text-sm mb-2">⚠️ إذن الموقع مفعّل لكن الدقة غير كافية</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mb-2">
+                  الحالة الحالية تشير إلى موقع تقريبي. للحصول على دقة أفضل فعّل <strong>الموقع الدقيق (Precise Location)</strong>.
+                </p>
+                <ol className="text-xs text-amber-700 dark:text-amber-400 list-decimal list-inside space-y-1">
+                  <li>iPhone: الإعدادات → Privacy & Security → Location Services → المتصفح → فعّل <strong>Precise Location</strong></li>
+                  <li>Android: الإعدادات → الموقع → وضع الدقة العالية (High accuracy)</li>
+                  <li>افتح GPS في مكان مفتوح وانتظر 10-20 ثانية</li>
+                </ol>
+              </div>
+            )}
 
             {/* تعليمات تفعيل الإذن عند الرفض */}
             {permissionStatus === "denied" && (
