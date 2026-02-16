@@ -1,4 +1,4 @@
-const CACHE_NAME = "university-transport-v1";
+const CACHE_NAME = "university-transport-v3";
 const OFFLINE_URL = "/Performance/offline";
 
 // الملفات المطلوب تخزينها
