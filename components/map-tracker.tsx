@@ -26,23 +26,23 @@ interface MapTrackerProps {
 // أيقونة باص مخصصة v7 — 3D perspective من /public/icons/bus-marker.svg
 // الملف الأصلي: viewBox 56.38×36.77 (الباص يتجه يميناً بمنظور 3D)
 // التدوير: الباص يتجه يميناً = heading 90° (شرق)، لذا baseRotation = -90° ليتجه شمالاً عند heading=0
-const BUS_ICON_URL = '/Performance/icons/bus-marker.svg';
+const BUS_ICON_URL = '/Performance/icons/bus-marker.svg?v=2';
 const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
   // heading: 0°=شمال، 90°=شرق، 180°=جنوب، 270°=غرب
   const baseRotation = -90; // SVG الباص يتجه يميناً → -90° = شمال
   const rotation = baseRotation + (heading != null ? heading : 0);
 
   // أبعاد تحافظ على نسبة الطول/العرض الأصلية 56.38:36.77 ≈ 1.53:1
-  const baseW = 50; // عرض الباص (أفقي في الملف)
-  const baseH = 33; // ارتفاع الباص
+  const baseW = 34; // عرض الباص (أفقي في الملف)
+  const baseH = 22; // ارتفاع الباص
   const scale = isSelected ? 1.15 : 1;
   const w = Math.round(baseW * scale);
   const h = Math.round(baseH * scale);
-  const glow = isSelected ? 12 : isOnline ? 5 : 0;
+  const glow = isSelected ? 6 : 0;
 
   const accent = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
   const shadow = isSelected ? 'rgba(26,115,232,0.4)' : isOnline ? 'rgba(76,175,80,0.2)' : 'rgba(0,0,0,0.05)';
-  const opacity = isOnline ? '1' : '0.45';
+  const opacity = isOnline ? '1' : '0.6';
 
   // المنطقة الكلية: مربع يحتوي الصورة بعد الدوران (قطر الصورة)
   const diagonal = Math.ceil(Math.sqrt(w * w + h * h));
@@ -58,7 +58,7 @@ const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number 
       <div style="position:relative;width:${totalW}px;height:${totalH}px;">
         ${glow > 0 ? `<div style="position:absolute;width:${boxSize}px;height:${boxSize}px;top:0;left:0;border-radius:50%;background:radial-gradient(circle,${shadow} 0%,transparent 70%);${isOnline && !isSelected ? 'animation:busPulse 3s ease-in-out infinite;' : ''}"></div>` : ''}
         <div style="position:absolute;top:${glow}px;left:${glow}px;width:${diagonal}px;height:${diagonal}px;transform:rotate(${rotation}deg);transform-origin:center center;transition:transform 1s cubic-bezier(0.4,0,0.2,1);cursor:pointer;z-index:10;">
-          <img src="${BUS_ICON_URL}" width="${w}" height="${h}" style="position:absolute;top:${imgOffsetY}px;left:${imgOffsetX}px;display:block;opacity:${opacity};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))${!isOnline ? ' grayscale(0.7)' : ''};"/>
+          <img src="${BUS_ICON_URL}" width="${w}" height="${h}" style="position:absolute;top:${imgOffsetY}px;left:${imgOffsetX}px;display:block;opacity:${opacity};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))${!isOnline ? ' grayscale(0.3)' : ''};" crossorigin="anonymous"/>
         </div>
         ${isSelected ? `<div style="position:absolute;top:${glow - 2}px;left:${glow - 2}px;width:${diagonal + 4}px;height:${diagonal + 4}px;border:2px solid ${accent};border-radius:50%;opacity:0.45;"></div>` : ''}
         ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.95);color:#1A1A2E;font-size:8px;font-weight:800;padding:1px 5px;border-radius:5px;white-space:nowrap;z-index:20;box-shadow:0 1px 3px rgba(0,0,0,0.15);border:1px solid ${isOnline ? '#E0E0E0' : '#B0BEC5'};">${busNumber}</div>` : ''}
