@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiCache } from "@/lib/cache";
+import { getCurrentUser } from "@/lib/auth";
 
 // GET: الحصول على مواقع الباصات الحالية
 export async function GET(request: Request) {
@@ -126,6 +127,7 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json();
     const { busId, action } = body as { busId?: string; action?: "start" | "stop" };
+    const currentUser = await getCurrentUser();
 
     if (!busId || !action) {
       return NextResponse.json(
@@ -134,10 +136,88 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const bus = await prisma.bus.findUnique({ where: { id: busId }, select: { id: true } });
+    const bus = await prisma.bus.findUnique({
+      where: { id: busId },
+      select: {
+        id: true,
+        busNumber: true,
+        districts: {
+          where: { isActive: true },
+          take: 1,
+          select: {
+            district: {
+              select: { name: true },
+            },
+          },
+        },
+        assignments: {
+          where: { isActive: true },
+          orderBy: { assignedAt: "desc" },
+          take: 1,
+          select: {
+            driver: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                user: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    username: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
     if (!bus) {
       return NextResponse.json({ error: "الباص غير موجود" }, { status: 404 });
     }
+
+    const assignedDriver = bus.assignments[0]?.driver;
+    const driverName = currentUser?.fullName || assignedDriver?.name || "غير معروف";
+    const driverUsername = currentUser?.username || assignedDriver?.user?.username || "-";
+    const driverPhone = assignedDriver?.phone || "-";
+    const districtName = bus.districts[0]?.district?.name || "غير محدد";
+
+    const notifyAdmins = async (status: "ACTIVE" | "ENDED") => {
+      const adminUsers = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          role: { in: ["ADMIN", "MANAGER"] },
+        },
+        select: { id: true },
+      });
+
+      if (adminUsers.length === 0) return;
+
+      const isStart = status === "ACTIVE";
+      const title = isStart ? "بدء تتبع السائق" : "إيقاف تتبع السائق";
+      const message = [
+        `السائق: ${driverName} (${driverUsername})`,
+        `رقم الجوال: ${driverPhone}`,
+        `الباص: ${bus.busNumber}`,
+        `الحي: ${districtName}`,
+        `الحالة: ${isStart ? "بدأ التتبع المباشر" : "أوقف التتبع المباشر"}`,
+        `الوقت: ${now.toLocaleString("ar-SA")}`,
+      ].join("\n");
+
+      await prisma.notification.createMany({
+        data: adminUsers.map((admin) => ({
+          userId: admin.id,
+          title,
+          message,
+          type: "TRIP_UPDATE",
+          priority: isStart ? "NORMAL" : "HIGH",
+          soundType: isStart ? "default" : "alert",
+          senderId: currentUser?.userId || assignedDriver?.user?.id || null,
+          link: "/Performance/dashboard",
+        })),
+      });
+    };
 
     const now = new Date();
 
@@ -154,6 +234,8 @@ export async function PATCH(request: Request) {
           lastPointAt: now,
         },
       });
+
+      await notifyAdmins("ENDED");
 
       apiCache.delete("tracking:all");
       return NextResponse.json({ success: true, status: "ENDED" });
@@ -187,6 +269,8 @@ export async function PATCH(request: Request) {
           source: "DRIVER_APP",
         },
       });
+
+      await notifyAdmins("ACTIVE");
     } else {
       await prisma.trackingSession.update({
         where: { id: existing.id },

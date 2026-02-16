@@ -32,6 +32,14 @@ import { MobileTripCard } from "@/components/mobile-trip-card";
 import { ShiftSchedule } from "@/components/dashboard/shift-schedule";
 import { Statistics, Trip } from "@/components/dashboard/types";
 
+interface TrackingNotification {
+  id: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  priority?: string;
+}
+
 export default function DashboardPage() {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -41,6 +49,7 @@ export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [trackingNotifications, setTrackingNotifications] = useState<TrackingNotification[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -63,6 +72,27 @@ export default function DashboardPage() {
       if (!tripsRes.ok) throw new Error("فشل جلب الرحلات");
       const tripsData = await tripsRes.json();
       setTrips(Array.isArray(tripsData) ? tripsData : []);
+
+      try {
+        const notifRes = await fetch("/Performance/api/notifications?limit=30");
+        if (notifRes.ok) {
+          const notifData = await notifRes.json();
+          const list = Array.isArray(notifData.notifications) ? notifData.notifications : [];
+          const trackingOnly = list
+            .filter((n: any) => n?.title === "بدء تتبع السائق" || n?.title === "إيقاف تتبع السائق")
+            .slice(0, 6)
+            .map((n: any) => ({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              createdAt: n.createdAt,
+              priority: n.priority,
+            }));
+          setTrackingNotifications(trackingOnly);
+        }
+      } catch {
+        // صامت — لا نعطل لوحة القيادة
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
       setError("تعذر تحميل البيانات، حاول مرة أخرى لاحقاً");
@@ -227,6 +257,56 @@ export default function DashboardPage() {
                 </Card>
               </div>
             )}
+
+            <Card className="bg-white border-slate-200 shadow-sm mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-800">
+                  <Bus className="w-5 h-5" />
+                  حالات التتبع المباشر للسائقين
+                </CardTitle>
+                <CardDescription className="text-slate-500">
+                  آخر عمليات بدء/إيقاف التتبع مع معلومات السائق
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {trackingNotifications.length > 0 ? (
+                  <div className="space-y-3">
+                    {trackingNotifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`rounded-xl border p-4 ${
+                          notification.title.includes("إيقاف")
+                            ? "border-amber-200 bg-amber-50"
+                            : "border-emerald-200 bg-emerald-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <p
+                            className={`font-bold text-sm ${
+                              notification.title.includes("إيقاف")
+                                ? "text-amber-800"
+                                : "text-emerald-800"
+                            }`}
+                          >
+                            {notification.title}
+                          </p>
+                          <span className="text-xs text-slate-500">
+                            {new Date(notification.createdAt).toLocaleString("ar-SA")}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-700 whitespace-pre-line leading-6">
+                          {notification.message}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-slate-500">لا توجد أحداث تتبع حديثة</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Secondary Stats */}
             {statistics &&
