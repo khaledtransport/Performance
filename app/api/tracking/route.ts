@@ -238,7 +238,7 @@ export async function POST(request: Request) {
     const parsedAccuracy = accuracy ? parseFloat(accuracy) : null;
 
     const shouldIgnoreLowAccuracy =
-      parsedAccuracy !== null && Number.isFinite(parsedAccuracy) && parsedAccuracy > 300;
+      parsedAccuracy !== null && Number.isFinite(parsedAccuracy) && parsedAccuracy > 1500;
 
     const location = await prisma.$transaction(async (tx) => {
       const now = new Date();

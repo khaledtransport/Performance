@@ -80,6 +80,7 @@ export default function DriverTrackingPage() {
   const lastPositionRef = useRef<FullPosition | null>(null);
   const isTrackingRef = useRef(false);
   const selectedBusIdRef = useRef<string>("");
+  const watchdogIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const getPendingStopKey = useCallback((busId: string) => `tracking_pending_stop:${busId}`, []);
 
@@ -242,9 +243,15 @@ export default function DriverTrackingPage() {
           }),
         });
 
-        if (res.ok) {
+        if (res.ok || res.status === 202) {
           setSendCount((prev) => prev + 1);
           setLastUpdate(new Date());
+          if (res.status === 202) {
+            const data = await res.json().catch(() => ({}));
+            if (data.accuracy) {
+              setGpsError(`⚠️ دقة GPS ضعيفة (${Math.round(data.accuracy)}م) – الموقع لا يُحفظ حتى تتحسن الدقة`);
+            }
+          }
         } else {
           const errData = await res.json().catch(() => ({}));
           console.error("Failed to send location:", errData);
@@ -338,47 +345,92 @@ export default function DriverTrackingPage() {
       description: "يتم إرسال موقعك كل 10 ثوانٍ",
     });
 
-    // مراقبة الموقع باستمرار
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude: lat, longitude: lng } = position.coords;
-        const spd = position.coords.speed;
-        const hdg = position.coords.heading;
-        const acc = position.coords.accuracy;
+    // --- متغيرات مرونة GPS ---
+    let gpsFailCount = 0;
+    let useHighAccuracy = true;
+    let lastGpsTime = 0;
 
-        setLatitude(lat);
-        setLongitude(lng);
-        setSpeed(spd);
-        setHeading(hdg);
-        setAccuracy(acc);
-        setGpsError(null);
-        setPermissionStatus("granted");
+    const onPosition = (position: GeolocationPosition) => {
+      const { latitude: lat, longitude: lng } = position.coords;
+      const spd = position.coords.speed;
+      const hdg = position.coords.heading;
+      const acc = position.coords.accuracy;
 
-        // حفظ كامل البيانات في المرجع
-        lastPositionRef.current = { lat, lng, speed: spd, heading: hdg, accuracy: acc };
-      },
-      (error) => {
-        let msg = "خطأ غير معروف في GPS";
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            msg = "تم رفض إذن الوصول للموقع!\n\nالحل:\n• iPhone: الإعدادات → Safari → الموقع → اسمح\n• Android: اضغط على القفل بجانب الرابط → أذونات الموقع → سماح";
-            setPermissionStatus("denied");
-            break;
-          case error.POSITION_UNAVAILABLE:
-            msg = "الموقع غير متاح. تأكد من تفعيل GPS في إعدادات الجوال";
-            break;
-          case error.TIMEOUT:
-            msg = "انتهت مهلة تحديد الموقع. انتقل لمكان مفتوح وحاول مرة أخرى";
-            break;
-        }
-        setGpsError(msg);
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 1000, // قبول موقع عمره ثانية فقط لدقة أعلى
-        timeout: 15000,
+      setLatitude(lat);
+      setLongitude(lng);
+      setSpeed(spd);
+      setHeading(hdg);
+      setAccuracy(acc);
+      setGpsError(null);
+      setPermissionStatus("granted");
+
+      gpsFailCount = 0;
+      lastGpsTime = Date.now();
+      lastPositionRef.current = { lat, lng, speed: spd, heading: hdg, accuracy: acc };
+    };
+
+    const restartWatch = () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
       }
-    );
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        onPosition,
+        (error) => {
+          if (error.code === error.PERMISSION_DENIED) {
+            setPermissionStatus("denied");
+            setGpsError("تم رفض إذن الوصول للموقع!\n\nالحل:\n• iPhone: الإعدادات → Safari → الموقع → اسمح\n• Android: اضغط على القفل بجانب الرابط → أذونات الموقع → سماح");
+            return;
+          }
+          gpsFailCount++;
+          if (gpsFailCount >= 2 && useHighAccuracy) {
+            // التبديل إلى دقة أقل بعد فشلين
+            useHighAccuracy = false;
+            setGpsError("⏳ جارٍ البحث عن إشارة GPS بطريقة بديلة...");
+            restartWatch();
+          } else if (gpsFailCount < 2) {
+            setGpsError("⏳ جارٍ البحث عن إشارة GPS...");
+          } else {
+            setGpsError("⚠️ إشارة GPS ضعيفة. تأكد من تفعيل GPS وأنك في مكان مفتوح");
+          }
+        },
+        {
+          enableHighAccuracy: useHighAccuracy,
+          maximumAge: useHighAccuracy ? 15000 : 60000, // قبول مواقع مخبأة أطول
+          timeout: useHighAccuracy ? 20000 : 30000,
+        }
+      );
+    };
+
+    // بدء مراقبة GPS
+    restartWatch();
+
+    // مراقب ذكي: إعادة محاولة GPS إذا توقف + getCurrentPosition كبديل
+    watchdogIntervalRef.current = setInterval(() => {
+      if (!isTrackingRef.current) return;
+      const elapsed = Date.now() - lastGpsTime;
+
+      // إذا لم يأتِ موقع لمدة 20 ثانية، جرب getCurrentPosition كبديل
+      if (elapsed > 20000 || lastGpsTime === 0) {
+        navigator.geolocation.getCurrentPosition(
+          onPosition,
+          () => {
+            // محاولة أخيرة بدقة منخفضة
+            navigator.geolocation.getCurrentPosition(
+              onPosition,
+              () => {},
+              { enableHighAccuracy: false, maximumAge: 120000, timeout: 30000 }
+            );
+          },
+          { enableHighAccuracy: useHighAccuracy, maximumAge: 60000, timeout: 15000 }
+        );
+      }
+
+      // إذا لم يأتِ موقع لمدة 30 ثانية، أعد تشغيل المراقبة بوضع مختلف
+      if (elapsed > 30000 && lastGpsTime > 0) {
+        useHighAccuracy = !useHighAccuracy;
+        restartWatch();
+      }
+    }, 15000);
 
     // إرسال الموقع كل 8 ثوانٍ مع كامل البيانات
     intervalRef.current = setInterval(() => {
@@ -388,32 +440,24 @@ export default function DriverTrackingPage() {
       }
     }, 8000);
 
-    // إرسال الموقع فوراً
+    // محاولة الحصول على الموقع فوراً مع بديل
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const fullPos: FullPosition = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          speed: position.coords.speed,
-          heading: position.coords.heading,
-          accuracy: position.coords.accuracy,
-        };
-        lastPositionRef.current = fullPos;
-        setLatitude(fullPos.lat);
-        setLongitude(fullPos.lng);
-        setSpeed(fullPos.speed);
-        setHeading(fullPos.heading);
-        setAccuracy(fullPos.accuracy);
-        setPermissionStatus("granted");
-        sendLocation(fullPos);
+        onPosition(position);
+        if (lastPositionRef.current) sendLocation(lastPositionRef.current);
       },
-      (error) => {
-        if (error.code === error.PERMISSION_DENIED) {
-          setPermissionStatus("denied");
-          setGpsError("يرجى السماح بإذن الموقع من المتصفح");
-        }
+      () => {
+        // بديل: محاولة بدقة أقل
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            onPosition(pos);
+            if (lastPositionRef.current) sendLocation(lastPositionRef.current);
+          },
+          () => {},
+          { enableHighAccuracy: false, maximumAge: 60000, timeout: 20000 }
+        );
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     );
   }, [selectedBusId, sendLocation, toast, permissionStatus, setTrackingStatus, getPendingStopKey]);
 
@@ -426,6 +470,10 @@ export default function DriverTrackingPage() {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+    if (watchdogIntervalRef.current) {
+      clearInterval(watchdogIntervalRef.current);
+      watchdogIntervalRef.current = null;
     }
     lastPositionRef.current = null;
     setIsTracking(false);
@@ -459,6 +507,10 @@ export default function DriverTrackingPage() {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+      if (watchdogIntervalRef.current) {
+        clearInterval(watchdogIntervalRef.current);
+        watchdogIntervalRef.current = null;
       }
       lastPositionRef.current = null;
       setIsTracking(false);
@@ -520,6 +572,9 @@ export default function DriverTrackingPage() {
       }
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+      }
+      if (watchdogIntervalRef.current) {
+        clearInterval(watchdogIntervalRef.current);
       }
     };
   }, []);
