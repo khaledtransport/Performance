@@ -27,17 +27,15 @@ interface MapTrackerProps {
 // الملف: viewBox 56.38×36.77 (الباص يتجه يميناً في SVG)
 // CSS rotate: 0°=يمين → كل قيمة CW (مع عقارب الساعة)
 // GPS heading: 0°=شمال، 90°=شرق
-// → لتحويل heading إلى CSS rotate: الباص يتجه يميناً=شرق=heading90
-//   فالفارق = heading - 90  →  baseRotation = -90
+// معايرة اتجاه الرسم داخل SVG:
+// القيمة 270 تعني أن مقدمة الباص المرسوم تتجه غرباً عند rotate(0)
+// (تم ضبطها بعد فحص الانقلاب 180° في الخريطة)
+const ICON_DRAWN_HEADING = 270;
 const BUS_ICON_URL = '/Performance/icons/bus-marker.svg?v=3';
 const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
-  // الباص في SVG يتجه لليمين (شرق = 90°)
-  // لتحويل GPS heading إلى CSS rotation: rotation = heading - 90
-  // heading=0(شمال) → rotate -90° (يلف من اليمين للأعلى) ✓
-  // heading=90(شرق) → rotate 0° (يبقى يمين) ✓
-  // heading=180(جنوب) → rotate 90° (يلف للأسفل) ✓
-  // heading=270(غرب) → rotate 180° (يلف لليسار) ✓
-  const rotation = (heading != null ? heading : 0) - 90;
+  // التحويل العام: rotation = heading - ICON_DRAWN_HEADING
+  // مثال: heading=0 (شمال) ومع ICON_DRAWN_HEADING=270 => rotate -270 (تكافئ +90)
+  const rotation = heading != null ? heading - ICON_DRAWN_HEADING : 0;
 
   // أبعاد نظيفة — نسبة 1.53:1 مثل الأصل
   const baseW = 36;
@@ -141,6 +139,11 @@ function shortestAngleDelta(fromDeg: number, toDeg: number): number {
   return ((toDeg - fromDeg + 540) % 360) - 180;
 }
 
+function blendAngles(baseDeg: number, targetDeg: number, targetWeight = 0.7): number {
+  const delta = shortestAngleDelta(baseDeg, targetDeg);
+  return normalizeHeading(baseDeg + delta * targetWeight);
+}
+
 // تحريك العلامة بسلاسة من موقع لآخر (Smooth Marker Animation)
 function animateMarker(marker: L.Marker, targetLat: number, targetLng: number, durationMs = 1500) {
   const start = marker.getLatLng();
@@ -171,6 +174,8 @@ export default function MapTracker({
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLocationsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
   const prevHeadingsRef = useRef<Map<string, number>>(new Map());
+  const roadSnapRef = useRef<Map<string, { lat: number; lng: number; heading: number | null; updatedAt: number }>>(new Map());
+  const roadSnapInFlightRef = useRef<Set<string>>(new Set());
   const isFirstRenderRef = useRef(true);
 
   // تهيئة الخريطة
@@ -217,6 +222,8 @@ export default function MapTracker({
         markersRef.current.delete(id);
         prevLocationsRef.current.delete(id);
         prevHeadingsRef.current.delete(id);
+        roadSnapRef.current.delete(id);
+        roadSnapInFlightRef.current.delete(id);
       }
     });
 
@@ -417,6 +424,77 @@ export default function MapTracker({
     locations.forEach((loc) => {
       const existing = markersRef.current.get(loc.busId);
       const prev = prevLocationsRef.current.get(loc.busId);
+      const now = Date.now();
+
+      // محاولة مطابقة الموقع مع الطريق (Map Matching) لتحسين منطق الحركة مثل تطبيقات الأجرة
+      const speedValue = typeof loc.speed === 'number' && Number.isFinite(loc.speed) ? loc.speed : null;
+      if (loc.isOnline && prev && !roadSnapInFlightRef.current.has(loc.busId)) {
+        const movedMeters = distanceMeters(prev.lat, prev.lng, loc.latitude, loc.longitude);
+        if (movedMeters >= 10 && (speedValue ?? 0) >= 8) {
+          roadSnapInFlightRef.current.add(loc.busId);
+          const coords = `${prev.lng},${prev.lat};${loc.longitude},${loc.latitude}`;
+          fetch(`https://router.project-osrm.org/match/v1/driving/${coords}?geometries=geojson&overview=full&steps=false&radiuses=35;35`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+              const tracePoint = data?.tracepoints?.[1]?.location;
+              let snappedLat = loc.latitude;
+              let snappedLng = loc.longitude;
+              if (Array.isArray(tracePoint) && tracePoint.length >= 2) {
+                snappedLng = tracePoint[0];
+                snappedLat = tracePoint[1];
+              }
+
+              let roadHeading: number | null = null;
+              const geom = data?.matchings?.[0]?.geometry?.coordinates;
+              if (Array.isArray(geom) && geom.length >= 2) {
+                const p1 = geom[geom.length - 2];
+                const p2 = geom[geom.length - 1];
+                roadHeading = calcBearing(p1[1], p1[0], p2[1], p2[0]);
+              }
+
+              roadSnapRef.current.set(loc.busId, {
+                lat: snappedLat,
+                lng: snappedLng,
+                heading: roadHeading,
+                updatedAt: Date.now(),
+              });
+
+              const marker = markersRef.current.get(loc.busId);
+              if (marker) {
+                const markerPos = marker.getLatLng();
+                const snapDist = distanceMeters(markerPos.lat, markerPos.lng, snappedLat, snappedLng);
+                if (snapDist > 2) {
+                  animateMarker(marker, snappedLat, snappedLng, 900);
+                }
+
+                const stable = prevHeadingsRef.current.get(loc.busId);
+                let refinedHeading = roadHeading ?? stable ?? null;
+                if (refinedHeading != null && stable != null) {
+                  const delta = shortestAngleDelta(stable, refinedHeading);
+                  const maxStep = 20;
+                  if (Math.abs(delta) > maxStep) {
+                    refinedHeading = normalizeHeading(stable + Math.sign(delta) * maxStep);
+                  }
+                }
+
+                if (refinedHeading != null) {
+                  prevHeadingsRef.current.set(loc.busId, refinedHeading);
+                }
+
+                marker.setIcon(createBusIcon(loc.isOnline, loc.busId === selectedBus, refinedHeading, loc.busNumber));
+              }
+            })
+            .catch(() => {})
+            .finally(() => {
+              roadSnapInFlightRef.current.delete(loc.busId);
+            });
+        }
+      }
+
+      const roadSnap = roadSnapRef.current.get(loc.busId);
+      const hasFreshRoadSnap = !!roadSnap && now - roadSnap.updatedAt <= 20000;
+      const displayLat = hasFreshRoadSnap ? roadSnap!.lat : loc.latitude;
+      const displayLng = hasFreshRoadSnap ? roadSnap!.lng : loc.longitude;
       
       // اتجاه منطقي: نعتمد على حركة المسار أولاً، مع تنعيم الزاوية ومنع القفزات
       const sensorHeading =
@@ -433,17 +511,25 @@ export default function MapTracker({
       }
 
       const lastStableHeading = prevHeadingsRef.current.get(loc.busId);
-      const speedValue = typeof loc.speed === 'number' && Number.isFinite(loc.speed) ? loc.speed : null;
+      const roadHeading = hasFreshRoadSnap ? roadSnap!.heading : null;
 
       let heading: number | null = null;
-      if (movementHeading != null) {
+      if (!loc.isOnline) {
+        // عند الانقطاع لا نعرض اتجاه قديم مخزن في DB لأنه غالباً غير دقيق
+        heading = lastStableHeading ?? null;
+      } else if (movementHeading != null && roadHeading != null) {
+        // دمج اتجاه الحركة الحقيقي مع اتجاه الطريق (سلوك أقرب لأوبر)
+        heading = blendAngles(movementHeading, roadHeading, 0.75);
+      } else if (movementHeading != null) {
         heading = movementHeading;
+      } else if (roadHeading != null && sensorHeading != null && (speedValue ?? 0) > 8) {
+        heading = blendAngles(sensorHeading, roadHeading, 0.8);
       } else if (sensorHeading != null && (speedValue == null || speedValue > 2)) {
         heading = sensorHeading;
       } else if (lastStableHeading != null) {
         heading = lastStableHeading;
       } else {
-        heading = sensorHeading;
+        heading = null;
       }
 
       if (heading != null && lastStableHeading != null) {
@@ -494,7 +580,7 @@ export default function MapTracker({
               <span>📍 الحي</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 13px; color: #475569;">
-              <span style="font-weight: 600;">${loc.heading?.toFixed(0) || 0}°</span>
+              <span style="font-weight: 600;">${heading != null ? `${heading.toFixed(0)}°` : '—'}</span>
               <span>🧭 الاتجاه</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 13px; color: #94a3b8;">
@@ -511,14 +597,14 @@ export default function MapTracker({
       if (existing) {
         // تحريك العلامة بسلاسة بدل القفز المباشر
         if (!isFirstRenderRef.current) {
-          animateMarker(existing, loc.latitude, loc.longitude, 1500);
+          animateMarker(existing, displayLat, displayLng, 1500);
         } else {
-          existing.setLatLng([loc.latitude, loc.longitude]);
+          existing.setLatLng([displayLat, displayLng]);
         }
         existing.setIcon(icon);
         existing.getPopup()?.setContent(popupContent);
       } else {
-        const marker = L.marker([loc.latitude, loc.longitude], { icon })
+        const marker = L.marker([displayLat, displayLng], { icon })
           .addTo(map)
           .bindPopup(popupContent, { maxWidth: 280, className: 'bus-popup' });
 

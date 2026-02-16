@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiCache } from "@/lib/cache";
+import { getCurrentUser } from "@/lib/auth";
 
 // GET: جلب رحلة يومية محددة
 export async function GET(
@@ -8,6 +9,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     const { id } = await params;
 
     const trip = await prisma.trip.findUnique({
@@ -63,6 +69,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+    if (!["ADMIN", "MANAGER", "DELEGATE"].includes(currentUser.role)) {
+      return NextResponse.json({ error: "ليس لديك صلاحية" }, { status: 403 });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const {
@@ -116,6 +130,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+    if (!["ADMIN", "MANAGER", "DELEGATE"].includes(currentUser.role)) {
+      return NextResponse.json({ error: "ليس لديك صلاحية" }, { status: 403 });
+    }
+
     const { id } = await params;
 
     await prisma.trip.delete({

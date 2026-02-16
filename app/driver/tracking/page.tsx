@@ -225,7 +225,7 @@ export default function DriverTrackingPage() {
             latitude: pos.lat,
             longitude: pos.lng,
             speed: pos.speed !== null ? (pos.speed * 3.6).toFixed(1) : "0",
-            heading: pos.heading !== null ? pos.heading.toFixed(0) : "0",
+            heading: pos.heading !== null ? pos.heading.toFixed(0) : null,
             accuracy: pos.accuracy !== null ? pos.accuracy.toFixed(0) : null,
           }),
         });

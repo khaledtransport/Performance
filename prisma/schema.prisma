@@ -19,17 +19,19 @@ model University {
 }
 
 model Bus {
-  id          String                @id @default(uuid())
-  busNumber   String                @unique @map("bus_number")
-  capacity    Int                   @default(50)
-  isActive    Boolean               @default(true) @map("is_active")
-  createdAt   DateTime              @default(now()) @map("created_at")
-  updatedAt   DateTime              @updatedAt @map("updated_at")
-  districts   BusDistrict[]
-  assignments BusDriverAssignment[]
-  routes      Route[]
-  trips       Trip[]
-  locations   BusLocation[]
+  id               String                @id @default(uuid())
+  busNumber        String                @unique @map("bus_number")
+  capacity         Int                   @default(50)
+  isActive         Boolean               @default(true) @map("is_active")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  districts        BusDistrict[]
+  assignments      BusDriverAssignment[]
+  routes           Route[]
+  trips            Trip[]
+  locations        BusLocation[]
+  trackingSessions TrackingSession[]
+  trackingPoints   TrackingPoint[]
 
   @@map("buses")
 }
@@ -122,24 +124,25 @@ model Representative {
 }
 
 model Route {
-  id               String          @id @default(uuid())
-  universityId     String          @map("university_id")
-  driverId         String          @map("driver_id")
-  busId            String          @map("bus_id")
-  districtId       String?         @map("district_id")
-  representativeId String?         @map("representative_id")
-  totalGoTrips     Int             @default(0) @map("total_go_trips")
-  totalReturnTrips Int             @default(0) @map("total_return_trips")
-  isActive         Boolean         @default(true) @map("is_active")
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
+  id               String            @id @default(uuid())
+  universityId     String            @map("university_id")
+  driverId         String            @map("driver_id")
+  busId            String            @map("bus_id")
+  districtId       String?           @map("district_id")
+  representativeId String?           @map("representative_id")
+  totalGoTrips     Int               @default(0) @map("total_go_trips")
+  totalReturnTrips Int               @default(0) @map("total_return_trips")
+  isActive         Boolean           @default(true) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
   routeTrips       RouteTrip[]
-  bus              Bus             @relation(fields: [busId], references: [id], onDelete: Cascade)
-  district         District?       @relation(fields: [districtId], references: [id])
-  driver           Driver          @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  representative   Representative? @relation(fields: [representativeId], references: [id])
-  university       University      @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  bus              Bus               @relation(fields: [busId], references: [id], onDelete: Cascade)
+  district         District?         @relation(fields: [districtId], references: [id])
+  driver           Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  representative   Representative?   @relation(fields: [representativeId], references: [id])
+  university       University        @relation(fields: [universityId], references: [id], onDelete: Cascade)
   trips            Trip[]
+  trackingSessions TrackingSession[]
 
   @@map("routes")
 }
@@ -204,18 +207,18 @@ enum UserRole {
 // ============ نظام الإشعارات ============
 
 model Notification {
-  id        String             @id @default(uuid())
-  userId    String?            @map("user_id")
+  id        String               @id @default(uuid())
+  userId    String?              @map("user_id")
   title     String
   message   String
-  type      NotificationType   @default(INFO)
+  type      NotificationType     @default(INFO)
   priority  NotificationPriority @default(NORMAL)
-  soundType String?            @map("sound_type")
-  isRead    Boolean            @default(false) @map("is_read")
+  soundType String?              @map("sound_type")
+  isRead    Boolean              @default(false) @map("is_read")
   link      String?
-  senderId  String?            @map("sender_id")
-  createdAt DateTime           @default(now()) @map("created_at")
-  user      User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderId  String?              @map("sender_id")
+  createdAt DateTime             @default(now()) @map("created_at")
+  user      User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
   @@index([createdAt])
@@ -248,11 +251,63 @@ model BusLocation {
   latitude  Float
   longitude Float
   speed     Float?   @default(0)
-  heading   Float?   @default(0)
+  heading   Float?
   accuracy  Float?
   timestamp DateTime @default(now())
   bus       Bus      @relation(fields: [busId], references: [id], onDelete: Cascade)
 
   @@index([busId, timestamp])
   @@map("bus_locations")
+}
+
+model TrackingSession {
+  id          String                @id @default(uuid())
+  busId       String                @map("bus_id")
+  routeId     String?               @map("route_id")
+  startedAt   DateTime              @default(now()) @map("started_at")
+  lastPointAt DateTime              @default(now()) @map("last_point_at")
+  endedAt     DateTime?             @map("ended_at")
+  status      TrackingSessionStatus @default(ACTIVE)
+  source      TrackingSource        @default(DRIVER_APP)
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+  bus         Bus                   @relation(fields: [busId], references: [id], onDelete: Cascade)
+  route       Route?                @relation(fields: [routeId], references: [id])
+  points      TrackingPoint[]
+
+  @@index([busId, status, lastPointAt])
+  @@index([routeId])
+  @@map("tracking_sessions")
+}
+
+model TrackingPoint {
+  id            String          @id @default(uuid())
+  sessionId     String          @map("session_id")
+  busId         String          @map("bus_id")
+  latitude      Float
+  longitude     Float
+  speed         Float?
+  heading       Float?
+  accuracy      Float?
+  isRoadSnapped Boolean         @default(false) @map("is_road_snapped")
+  timestamp     DateTime        @default(now())
+  source        TrackingSource  @default(DRIVER_APP)
+  session       TrackingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  bus           Bus             @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
+  @@index([busId, timestamp])
+  @@map("tracking_points")
+}
+
+enum TrackingSessionStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum TrackingSource {
+  DRIVER_APP
+  GPS_FALLBACK
+  IMPORTED
 }

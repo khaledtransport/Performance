@@ -216,6 +216,10 @@ export async function GET(request: NextRequest) {
 
     const totalTrips = trips.length + routeTrips.length;
 
+    const completionRate = totalTrips
+      ? parseFloat(((statusCounts.ARRIVED / totalTrips) * 100).toFixed(1))
+      : 0;
+
     return NextResponse.json({
       date: targetDate,
       totals: {
@@ -229,6 +233,28 @@ export async function GET(request: NextRequest) {
       statusCounts,
       driversPerformance,
       universitiesActivity,
+
+      // Backward compatibility for reports page (legacy shape)
+      totalTrips,
+      totalStudents,
+      completedTrips: statusCounts.ARRIVED,
+      pendingTrips: statusCounts.PENDING,
+      delayedTrips: statusCounts.DELAYED,
+      cancelledTrips: statusCounts.CANCELLED,
+      completionRate,
+      driverPerformance: driversPerformance.map((d) => ({
+        driverId: d.driverId,
+        driverName: d.name,
+        totalTrips: d.trips,
+        completedTrips: d.arrived,
+        performance: d.performancePercentage,
+      })),
+      universityActivity: universitiesActivity.map((u) => ({
+        universityId: u.universityId,
+        universityName: u.name,
+        totalTrips: u.trips,
+        totalStudents: u.students,
+      })),
     });
   } catch (error) {
     console.error("Error fetching statistics:", error);

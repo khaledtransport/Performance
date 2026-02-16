@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 // PUT: تحديث إشعار (قراءة)
 export async function PUT(
@@ -7,12 +8,25 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     const { id } = await params;
-    const notification = await prisma.notification.update({
-      where: { id },
+    const result = await prisma.notification.updateMany({
+      where: {
+        id,
+        OR: [{ userId: currentUser.userId }, { userId: null }],
+      },
       data: { isRead: true },
     });
-    return NextResponse.json(notification);
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: "الإشعار غير موجود" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Notification PUT error:", error);
     return NextResponse.json(
@@ -28,6 +42,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+    if (!["ADMIN", "MANAGER"].includes(currentUser.role)) {
+      return NextResponse.json({ error: "ليس لديك صلاحية" }, { status: 403 });
+    }
+
     const { id } = await params;
     await prisma.notification.delete({ where: { id } });
     return NextResponse.json({ success: true });

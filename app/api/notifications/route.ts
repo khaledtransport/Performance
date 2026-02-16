@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 // GET: جلب الإشعارات
 export async function GET(request: Request) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
-    const userId = request.headers.get("x-user-id");
+    const userId = currentUser.userId;
     const unreadOnly = searchParams.get("unread") === "true";
     const limit = parseInt(searchParams.get("limit") || "20");
     const page = parseInt(searchParams.get("page") || "1");
@@ -51,9 +57,17 @@ export async function GET(request: Request) {
 // POST: إنشاء إشعار جديد (يدعم الإرسال الجماعي للسائقين)
 export async function POST(request: Request) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+    if (!["ADMIN", "MANAGER"].includes(currentUser.role)) {
+      return NextResponse.json({ error: "ليس لديك صلاحية" }, { status: 403 });
+    }
+
     const body = await request.json();
     const { title, message, type, userId, link, priority, soundType, target } = body;
-    const senderId = request.headers.get("x-user-id");
+    const senderId = currentUser.userId;
 
     if (!title || !message) {
       return NextResponse.json(
@@ -136,7 +150,12 @@ export async function POST(request: Request) {
 // PUT: تحديث حالة القراءة (قراءة الكل)
 export async function PUT(request: Request) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
+    const userId = currentUser.userId;
 
     const where: Record<string, unknown> = { isRead: false };
     if (userId) {

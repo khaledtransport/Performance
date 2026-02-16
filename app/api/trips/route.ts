@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TripStatus, TripDirection } from "@prisma/client";
 import { apiCache } from "@/lib/cache";
+import { getCurrentUser } from "@/lib/auth";
 
 // مدة صلاحية الكاش (30 ثانية)
 const CACHE_TTL = 30 * 1000;
@@ -9,6 +10,11 @@ const CACHE_TTL = 30 * 1000;
 // GET: جلب الرحلات اليومية (من جدولي trips و route_trips) - مع كاش
 export async function GET(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date");
     const startDateParam = searchParams.get("startDate");
@@ -231,6 +237,14 @@ export async function GET(request: NextRequest) {
 // POST: إضافة رحلة يومية جديدة
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+    if (!["ADMIN", "MANAGER", "DELEGATE"].includes(currentUser.role)) {
+      return NextResponse.json({ error: "ليس لديك صلاحية" }, { status: 403 });
+    }
+
     const body = await request.json();
     const {
       busId,

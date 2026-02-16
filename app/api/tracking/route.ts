@@ -9,11 +9,40 @@ export async function GET(request: Request) {
     const busId = searchParams.get("busId");
 
     if (busId) {
-      // موقع باص محدد مع آخر 50 موقع للمسار
+      // موقع باص محدد مع آخر 120 نقطة من سجل المسارات الجديد
+      const session = await prisma.trackingSession.findFirst({
+        where: { busId, status: "ACTIVE", endedAt: null },
+        orderBy: { lastPointAt: "desc" },
+        select: { id: true },
+      });
+
+      if (session) {
+        const points = await prisma.trackingPoint.findMany({
+          where: { sessionId: session.id },
+          orderBy: { timestamp: "desc" },
+          take: 120,
+          select: {
+            id: true,
+            latitude: true,
+            longitude: true,
+            speed: true,
+            heading: true,
+            accuracy: true,
+            timestamp: true,
+            busId: true,
+          },
+        });
+
+        if (points.length > 0) {
+          return NextResponse.json(points);
+        }
+      }
+
+      // fallback للتوافق مع البيانات القديمة
       const locations = await prisma.busLocation.findMany({
         where: { busId },
         orderBy: { timestamp: "desc" },
-        take: 50,
+        take: 120,
         include: { bus: true },
       });
       return NextResponse.json(locations);
@@ -54,7 +83,7 @@ export async function GET(request: Request) {
         latitude: loc?.latitude ?? 21.4858, // موقع افتراضي: جدة
         longitude: loc?.longitude ?? 39.1925,
         speed: loc?.speed ?? 0,
-        heading: loc?.heading ?? 0,
+        heading: loc?.heading ?? null,
         lastUpdate: loc?.timestamp ?? bus.createdAt,
         isOnline: hasLocation && 
           new Date().getTime() - new Date(loc!.timestamp).getTime() <
@@ -100,15 +129,90 @@ export async function POST(request: Request) {
       );
     }
 
-    const location = await prisma.busLocation.create({
-      data: {
-        busId,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
-        speed: speed ? parseFloat(speed) : 0,
-        heading: heading ? parseFloat(heading) : 0,
-        accuracy: accuracy ? parseFloat(accuracy) : null,
-      },
+    const parsedLatitude = parseFloat(latitude);
+    const parsedLongitude = parseFloat(longitude);
+    const parsedSpeed = speed !== undefined && speed !== null ? parseFloat(speed) : 0;
+    const parsedHeading =
+      heading !== undefined && heading !== null && Number.isFinite(parseFloat(heading))
+        ? ((parseFloat(heading) % 360) + 360) % 360
+        : null;
+    const parsedAccuracy = accuracy ? parseFloat(accuracy) : null;
+
+    const location = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+
+      // جلب المسار النشط الحالي للباص (إن وجد)
+      const activeRoute = await tx.route.findFirst({
+        where: { busId, isActive: true },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true },
+      });
+
+      let session = await tx.trackingSession.findFirst({
+        where: { busId, status: "ACTIVE", endedAt: null },
+        orderBy: { lastPointAt: "desc" },
+      });
+
+      // إذا كانت آخر نقطة قديمة (30 دقيقة) نغلق الجلسة ونبدأ جلسة جديدة
+      if (session) {
+        const idleMs = now.getTime() - new Date(session.lastPointAt).getTime();
+        if (idleMs > 30 * 60 * 1000) {
+          await tx.trackingSession.update({
+            where: { id: session.id },
+            data: { status: "ENDED", endedAt: now },
+          });
+          session = null;
+        }
+      }
+
+      if (!session) {
+        session = await tx.trackingSession.create({
+          data: {
+            busId,
+            routeId: activeRoute?.id ?? null,
+            startedAt: now,
+            lastPointAt: now,
+            status: "ACTIVE",
+            source: "DRIVER_APP",
+          },
+        });
+      }
+
+      // حفظ متوافق مع النظام الحالي
+      const createdLocation = await tx.busLocation.create({
+        data: {
+          busId,
+          latitude: parsedLatitude,
+          longitude: parsedLongitude,
+          speed: parsedSpeed,
+          heading: parsedHeading,
+          accuracy: parsedAccuracy,
+        },
+      });
+
+      // حفظ احترافي كسجل نقاط مرتبط بجلسة
+      await tx.trackingPoint.create({
+        data: {
+          sessionId: session.id,
+          busId,
+          latitude: parsedLatitude,
+          longitude: parsedLongitude,
+          speed: parsedSpeed,
+          heading: parsedHeading,
+          accuracy: parsedAccuracy,
+          source: "DRIVER_APP",
+        },
+      });
+
+      await tx.trackingSession.update({
+        where: { id: session.id },
+        data: {
+          lastPointAt: now,
+          routeId: session.routeId ?? activeRoute?.id ?? null,
+        },
+      });
+
+      return createdLocation;
     });
 
     // إبطال كاش التتبع عند تحديث الموقع
