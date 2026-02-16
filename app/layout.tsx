@@ -19,7 +19,9 @@ export const metadata: Metadata = {
   title: "نظام إدارة النقل الجامعي",
   description: "نظام متكامل لإدارة ومتابعة رحلات النقل الجامعي",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/Performance/favicon.ico",
+    shortcut: "/Performance/favicon.ico",
+    apple: "/Performance/icons/icon-192x192.png",
   },
   manifest: "/Performance/manifest.json",
   appleWebApp: {
@@ -45,6 +47,7 @@ export default function RootLayout({
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <link rel="icon" href="/Performance/favicon.ico" />
         <link rel="apple-touch-icon" href="/Performance/icons/icon-192x192.png" />
       </head>
       <body className={cairo.className}>
