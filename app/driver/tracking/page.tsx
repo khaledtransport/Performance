@@ -99,8 +99,10 @@ export default function DriverTrackingPage() {
   const isTrackingRef = useRef(false);
   const selectedBusIdRef = useRef<string>("");
   const gpsRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoResumeAttemptedRef = useRef(false);
 
   const getPendingStopKey = useCallback((busId: string) => `tracking_pending_stop:${busId}`, []);
+  const TRACKING_ACTIVE_BUS_KEY = "tracking_active_bus_id";
 
   useEffect(() => {
     isTrackingRef.current = isTracking;
@@ -320,17 +322,6 @@ export default function DriverTrackingPage() {
     [selectedBusId]
   );
 
-  const sendStopWithBeacon = useCallback((busId: string) => {
-    if (typeof window === "undefined" || !navigator.sendBeacon) return false;
-    try {
-      const payload = JSON.stringify({ busId, action: "stop" });
-      const blob = new Blob([payload], { type: "application/json" });
-      return navigator.sendBeacon("/Performance/api/tracking", blob);
-    } catch {
-      return false;
-    }
-  }, []);
-
   const flushPendingStop = useCallback(
     async (busId: string) => {
       if (typeof window === "undefined" || !busId) return;
@@ -400,6 +391,7 @@ export default function DriverTrackingPage() {
     void setTrackingStatus("start");
     if (typeof window !== "undefined") {
       localStorage.removeItem(getPendingStopKey(selectedBusId));
+      localStorage.setItem(TRACKING_ACTIVE_BUS_KEY, selectedBusId);
     }
 
     toast({
@@ -581,6 +573,7 @@ export default function DriverTrackingPage() {
 
     if (selectedBusId && typeof window !== "undefined") {
       localStorage.setItem(getPendingStopKey(selectedBusId), "1");
+      localStorage.removeItem(TRACKING_ACTIVE_BUS_KEY);
     }
 
     void setTrackingStatus("stop").finally(() => {
@@ -598,74 +591,74 @@ export default function DriverTrackingPage() {
   // التعامل مع فقدان/عودة الإنترنت وإغلاق الصفحة أثناء التتبع
   useEffect(() => {
     const handleOffline = () => {
-      const activeBusId = selectedBusIdRef.current;
-      if (!isTrackingRef.current || !activeBusId) return;
-
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (gpsRetryTimerRef.current) {
-        clearTimeout(gpsRetryTimerRef.current);
-        gpsRetryTimerRef.current = null;
-      }
-      if (firstPositionTimeoutRef.current) {
-        clearTimeout(firstPositionTimeoutRef.current);
-        firstPositionTimeoutRef.current = null;
-      }
-      lastPositionRef.current = null;
-      bestPositionRef.current = null;
-      prevGpsPositionRef.current = null;
-      calculatedSpeedRef.current = null;
-      setIsTracking(false);
-      setGpsQuality("unknown");
-      setCalculatedSpeed(null);
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem(getPendingStopKey(activeBusId), "1");
-      }
+      if (!isTrackingRef.current) return;
 
       toast({
         title: "انقطع الإنترنت",
-        description: "تم إيقاف التتبع محلياً وسيتم مزامنة حالة الإيقاف تلقائياً عند عودة الاتصال",
+        description: "سيستمر تتبع GPS محلياً، وسيتم إرسال التحديثات تلقائياً عند عودة الإنترنت",
         variant: "destructive",
       });
     };
 
     const handleOnline = () => {
       const activeBusId = selectedBusIdRef.current;
-      if (!activeBusId) return;
-      void flushPendingStop(activeBusId);
-    };
-
-    const handlePageHide = () => {
-      const activeBusId = selectedBusIdRef.current;
-      if (!isTrackingRef.current || !activeBusId) return;
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem(getPendingStopKey(activeBusId), "1");
-      }
-
-      const sent = sendStopWithBeacon(activeBusId);
-      if (!sent) {
+      if (activeBusId) {
         void flushPendingStop(activeBusId);
+      }
+      if (isTrackingRef.current && lastPositionRef.current) {
+        void sendLocation(lastPositionRef.current);
       }
     };
 
     window.addEventListener("offline", handleOffline);
     window.addEventListener("online", handleOnline);
-    window.addEventListener("pagehide", handlePageHide);
 
     return () => {
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("online", handleOnline);
-      window.removeEventListener("pagehide", handlePageHide);
     };
-  }, [flushPendingStop, getPendingStopKey, sendStopWithBeacon, toast]);
+  }, [flushPendingStop, sendLocation, toast]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (selectedBusId) return;
+
+    const persistedBusId = localStorage.getItem(TRACKING_ACTIVE_BUS_KEY);
+    if (!persistedBusId) return;
+
+    if (assignedBus?.id === persistedBusId) {
+      setSelectedBusId(persistedBusId);
+      return;
+    }
+
+    const existsInAvailable = availableBuses.some((bus) => bus.id === persistedBusId);
+    if (existsInAvailable) {
+      setSelectedBusId(persistedBusId);
+    }
+  }, [selectedBusId, assignedBus, availableBuses]);
+
+  useEffect(() => {
+    if (autoResumeAttemptedRef.current) return;
+    if (typeof window === "undefined") return;
+    if (isTracking) {
+      autoResumeAttemptedRef.current = true;
+      return;
+    }
+
+    const persistedBusId = localStorage.getItem(TRACKING_ACTIVE_BUS_KEY);
+    if (!persistedBusId || !selectedBusId || selectedBusId !== persistedBusId) return;
+
+    if (permissionStatus === "granted") {
+      autoResumeAttemptedRef.current = true;
+      startTracking();
+      return;
+    }
+
+    if (permissionStatus === "denied") {
+      autoResumeAttemptedRef.current = true;
+      setGpsError("كان التتبع يعمل قبل التحديث، لكن إذن الموقع مرفوض الآن. فعّل الإذن لاستئناف التتبع تلقائياً.");
+    }
+  }, [isTracking, selectedBusId, permissionStatus, startTracking]);
 
   useEffect(() => {
     if (!selectedBusId) return;
