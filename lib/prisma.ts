@@ -4,6 +4,12 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// إضافة حدود اتصال مناسبة لـ serverless (Vercel + Supabase pgbouncer)
+const dbUrl = process.env.DATABASE_URL || '';
+const pooledUrl = dbUrl.includes('connection_limit=')
+  ? dbUrl
+  : dbUrl + (dbUrl.includes('?') ? '&' : '?') + 'connection_limit=3&pool_timeout=15';
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
@@ -17,7 +23,7 @@ export const prisma =
         : [{ emit: "stdout", level: "error" }], // في الإنتاج: فقط الأخطاء
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: pooledUrl,
       },
     },
   });
