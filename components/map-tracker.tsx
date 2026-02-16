@@ -16,6 +16,7 @@ interface BusLocationData {
   lastUpdate: string;
   isOnline: boolean;
   hasLocation?: boolean;
+  isCellTower?: boolean;
 }
 
 interface MapTrackerProps {
@@ -559,8 +560,8 @@ export default function MapTracker({
 
       const timeDiff = Math.floor((Date.now() - new Date(loc.lastUpdate).getTime()) / 1000);
       const timeAgo = timeDiff < 60 ? `${timeDiff} ثانية` : timeDiff < 3600 ? `${Math.floor(timeDiff/60)} دقيقة` : `${Math.floor(timeDiff/3600)} ساعة`;
-      const statusText = loc.isOnline ? '🟢 متصل الآن' : loc.hasLocation === false ? '⏳ بانتظار التتبع' : '🔴 غير متصل';
-      const statusColor = loc.isOnline ? '#0f9d58' : loc.hasLocation === false ? '#FF9800' : '#ea4335';
+      const statusText = loc.isOnline ? (loc.isCellTower ? '🟠 متصل (برج خلوي)' : '🟢 متصل الآن') : loc.hasLocation === false ? '⏳ بانتظار التتبع' : '🔴 غير متصل';
+      const statusColor = loc.isOnline ? (loc.isCellTower ? '#FF9800' : '#0f9d58') : loc.hasLocation === false ? '#FF9800' : '#ea4335';
       
       const popupContent = `
         <div dir="rtl" style="text-align: right; min-width: 220px; font-family: system-ui, -apple-system, sans-serif; padding: 4px;">
@@ -602,6 +603,10 @@ export default function MapTracker({
               <span>${accuracyValue != null ? `${accuracyValue.toFixed(0)} م` : '—'}</span>
               <span>🎯 دقة GPS</span>
             </div>
+            ${loc.isCellTower ? `<div style="margin-top: 8px; padding: 6px 8px; background: #fff3e0; border-radius: 6px; border: 1px solid #ffe0b2;">
+              <p style="font-size: 11px; color: #e65100; font-weight: 700; margin: 0;">⚠️ الموقع تقريبي (برج خلوي)</p>
+              <p style="font-size: 10px; color: #bf360c; margin: 2px 0 0;">الهاتف لا يستخدم GPS — الخطأ قد يصل ${accuracyValue ? accuracyValue.toFixed(0) : '2000'}م</p>
+            </div>` : ''}
           </div>
         </div>
       `;

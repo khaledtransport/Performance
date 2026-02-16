@@ -45,6 +45,7 @@ interface BusLocationData {
   lastUpdate: string;
   isOnline: boolean;
   hasLocation?: boolean;
+  isCellTower?: boolean;
 }
 
 export default function TrackingPage() {
