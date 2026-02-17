@@ -53,7 +53,9 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(true);
   const [selectedBus, setSelectedBus] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [sseConnected, setSseConnected] = useState(false);
 
+  // جلب يدوي (زر التحديث)
   const fetchLocations = useCallback(async () => {
     try {
       const res = await fetch(`/Performance/api/tracking?ts=${Date.now()}`, {
@@ -70,15 +72,50 @@ export default function TrackingPage() {
     }
   }, []);
 
+  // جلب أولي فوري
   useEffect(() => {
     fetchLocations();
   }, [fetchLocations]);
 
+  // SSE — اتصال دائم يستقبل التحديثات (يحل محل polling كل 2 ثانية)
   useEffect(() => {
-    if (!autoRefresh) return;
-    const interval = setInterval(fetchLocations, 2000); // كل ثانيتين
-    return () => clearInterval(interval);
-  }, [autoRefresh, fetchLocations]);
+    if (!autoRefresh) {
+      setSseConnected(false);
+      return;
+    }
+
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      es = new EventSource("/Performance/api/tracking/stream");
+
+      es.onopen = () => setSseConnected(true);
+
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setLocations(data);
+          setLoading(false);
+        } catch { /* تجاهل JSON غير صالح */ }
+      };
+
+      es.onerror = () => {
+        setSseConnected(false);
+        es?.close();
+        // إعادة الاتصال بعد ثانيتين (EventSource يعيد تلقائياً لكن نضبط التأخير)
+        reconnectTimer = setTimeout(connect, 2000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      es?.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      setSseConnected(false);
+    };
+  }, [autoRefresh]);
 
   const onlineBuses = locations.filter((l) => l.isOnline);
   const offlineBuses = locations.filter((l) => !l.isOnline);
@@ -114,12 +151,12 @@ export default function TrackingPage() {
               onClick={() => setAutoRefresh(!autoRefresh)}
               className="gap-2"
             >
-              {autoRefresh ? (
+              {autoRefresh && sseConnected ? (
                 <Wifi className="w-4 h-4" />
               ) : (
                 <WifiOff className="w-4 h-4" />
               )}
-              {autoRefresh ? "مباشر" : "متوقف"}
+              {autoRefresh ? (sseConnected ? "مباشر" : "جاري الاتصال...") : "متوقف"}
             </Button>
             <Button
               variant="outline"

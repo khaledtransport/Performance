@@ -4,10 +4,12 @@ const nextConfig = {
   basePath: "/Performance",
   output: "standalone",
   eslint: {
+    // Tailwind v4 class names differ from v3 — lint warnings don’t block build
     ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    // فحص TypeScript مفعّل — الأخطاء توقف البناء
+    ignoreBuildErrors: false,
   },
   // تحسين الصور
   images: {

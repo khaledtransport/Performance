@@ -29,6 +29,8 @@ export async function POST(request: Request) {
     // التحقق من كلمة المرور
     const isValid = await verifyPassword(password, user.passwordHash);
     if (!isValid) {
+      // تأخير مقصود لإبطاء brute-force (لا يُعيد معلومات عن سبب الفشل)
+      await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
       return NextResponse.json(
         { error: "اسم المستخدم أو كلمة المرور غير صحيحة" },
         { status: 401 }

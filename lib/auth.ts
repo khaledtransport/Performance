@@ -1,13 +1,11 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import { JWT_SECRET_BYTES, TOKEN_EXPIRY } from "@/lib/jwt-config";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "university-transport-secret-key-2026"
-);
+const JWT_SECRET = JWT_SECRET_BYTES;
 
 const COOKIE_NAME = "auth_token";
-const TOKEN_EXPIRY = "7d";
 
 export interface AuthUser {
   id: string;

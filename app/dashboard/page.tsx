@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -53,9 +53,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedDate, filterStatus]);
+  }, [fetchData]);
 
-  const fetchData = async () => {
+  const getStatusBadge(async () => {
     setLoading(true);
     setError("");
     try {
@@ -99,7 +99,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, filterStatus]);
 
   const getStatusBadge = (status: string) => {
     const styles = {

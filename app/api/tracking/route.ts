@@ -2,6 +2,34 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiCache } from "@/lib/cache";
 import { getCurrentUser } from "@/lib/auth";
+import { z } from "zod";
+
+// مخطط Zod للتحقق من مدخلات POST
+const TrackingPostSchema = z.object({
+  busId: z.string().uuid("busId يجب أن يكون UUID صحيحا"),
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+  speed: z.coerce.number().min(0).max(300).optional().nullable(),
+  heading: z.coerce.number().min(0).max(360).optional().nullable(),
+  accuracy: z.coerce.number().min(0).max(50000).optional().nullable(),
+});
+
+// مخطط Zod لـ PATCH
+const TrackingPatchSchema = z.object({
+  busId: z.string().uuid("busId يجب أن يكون UUID"),
+  action: z.enum(["start", "stop"]),
+});
+
+// نوع آخر نقطة تتبع لكل باص (raw SQL DISTINCT ON)
+type LatestPoint = {
+  bus_id: string;
+  latitude: number;
+  longitude: number;
+  speed: number | null;
+  heading: number | null;
+  accuracy: number | null;
+  timestamp: Date;
+};
 
 // GET: الحصول على مواقع الباصات الحالية
 export async function GET(request: Request) {
@@ -96,39 +124,56 @@ export async function GET(request: Request) {
     }>;
 
     try {
-      // آخر موقع لكل باص نشط
+      // آخر نقطة لكل باص باستخدام DISTINCT ON (PostgreSQL) — استعلام واحد فقط
       const buses = await prisma.bus.findMany({
         where: { isActive: true },
         include: {
-          locations: {
-            orderBy: { timestamp: "desc" },
-            take: 12,
-          },
-          districts: {
-            include: { district: true },
-          },
+          districts: { include: { district: true } },
         },
+        orderBy: { busNumber: "asc" },
       });
 
-      // عرض جميع الباصات، حتى التي بدون موقع
-      busLocations = buses.map((bus) => {
-        const hasLocation = bus.locations.length > 0;
-        const latestLoc = hasLocation ? bus.locations[0] : null;
-        const loc = latestLoc;
+      // آخر نقطة من TrackingPoint لكل باص — استعلام واحد
+      const latestTPRaw = await prisma.$queryRaw<LatestPoint[]>`
+        SELECT DISTINCT ON (bus_id) bus_id, latitude, longitude, speed, heading, accuracy, timestamp
+        FROM tracking_points
+        ORDER BY bus_id, timestamp DESC
+      `;
+      const latestTP = new Map(latestTPRaw.map((p) => [p.bus_id, p]));
 
+      // للباصات بدون TrackingPoint — fallback لـ BusLocation (legacy data)
+      const busesWithoutTP = buses.filter((b) => !latestTP.has(b.id)).map((b) => b.id);
+      const latestBLMap = new Map<string, LatestPoint>();
+      if (busesWithoutTP.length > 0) {
+        try {
+          const legacyRows = await prisma.$queryRaw<LatestPoint[]>`
+            SELECT DISTINCT ON (bus_id) bus_id, latitude, longitude, speed, heading, accuracy, timestamp
+            FROM bus_locations
+            WHERE bus_id = ANY(${busesWithoutTP}::text[])
+            ORDER BY bus_id, timestamp DESC
+          `;
+          for (const r of legacyRows) latestBLMap.set(r.bus_id, r);
+        } catch {
+          // صامت — الباصات بدون بيانات ستظهر بإحداثيات جدة
+        }
+      }
+
+      busLocations = buses.map((bus) => {
+        const tp = latestTP.get(bus.id) ?? latestBLMap.get(bus.id) ?? null;
+        const hasLocation = tp !== null;
         return {
           busId: bus.id,
           busNumber: bus.busNumber,
           district: bus.districts[0]?.district?.name || "غير محدد",
-          latitude: loc?.latitude ?? 21.4858,
-          longitude: loc?.longitude ?? 39.1925,
-          speed: loc?.speed ?? 0,
-          heading: loc?.heading ?? null,
-          accuracy: latestLoc?.accuracy ?? null,
-          lastUpdate: latestLoc?.timestamp ?? bus.createdAt,
+          latitude: tp?.latitude ?? 21.4858,
+          longitude: tp?.longitude ?? 39.1925,
+          speed: tp?.speed ?? 0,
+          heading: tp?.heading ?? null,
+          accuracy: tp?.accuracy ?? null,
+          lastUpdate: tp?.timestamp ?? bus.createdAt,
           isOnline: activeBusSet.has(bus.id),
           hasLocation,
-          isCellTower: latestLoc?.accuracy != null && latestLoc.accuracy >= 300,
+          isCellTower: tp?.accuracy != null && tp.accuracy >= 300,
         };
       });
     } catch (busesError) {
@@ -136,50 +181,23 @@ export async function GET(request: Request) {
 
       const buses = await prisma.bus.findMany({
         where: { isActive: true },
-        select: {
-          id: true,
-          busNumber: true,
-          createdAt: true,
-        },
+        select: { id: true, busNumber: true, createdAt: true },
       });
 
-      const latestLocations = await Promise.all(
-        buses.map(async (bus) => {
-          const latestLoc = await prisma.busLocation.findFirst({
-            where: { busId: bus.id },
-            orderBy: { timestamp: "desc" },
-            select: {
-              latitude: true,
-              longitude: true,
-              speed: true,
-              heading: true,
-              accuracy: true,
-              timestamp: true,
-            },
-          });
-
-          return { bus, latestLoc };
-        })
-      );
-
-      busLocations = latestLocations.map(({ bus, latestLoc }) => {
-        const hasLocation = !!latestLoc;
-
-        return {
-          busId: bus.id,
-          busNumber: bus.busNumber,
-          district: "غير محدد",
-          latitude: latestLoc?.latitude ?? 21.4858,
-          longitude: latestLoc?.longitude ?? 39.1925,
-          speed: latestLoc?.speed ?? 0,
-          heading: latestLoc?.heading ?? null,
-          accuracy: latestLoc?.accuracy ?? null,
-          lastUpdate: latestLoc?.timestamp ?? bus.createdAt,
-          isOnline: activeBusSet.has(bus.id),
-          hasLocation,
-          isCellTower: latestLoc?.accuracy != null && latestLoc.accuracy >= 300,
-        };
-      });
+      busLocations = buses.map((bus) => ({
+        busId: bus.id,
+        busNumber: bus.busNumber,
+        district: "غير محدد",
+        latitude: 21.4858,
+        longitude: 39.1925,
+        speed: 0,
+        heading: null,
+        accuracy: null,
+        lastUpdate: bus.createdAt,
+        isOnline: activeBusSet.has(bus.id),
+        hasLocation: false,
+        isCellTower: false,
+      }));
     }
 
     // كاش 2 ثانية لتقليل ضغط DB مع استجابة سريعة للتحديثات
@@ -201,15 +219,15 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { busId, action } = body as { busId?: string; action?: "start" | "stop" };
-    const currentUser = await getCurrentUser();
-
-    if (!busId || !action) {
+    const parsed = TrackingPatchSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "busId و action مطلوبان" },
+        { error: "بيانات غير صالحة", details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
+    const { busId, action } = parsed.data;
+    const currentUser = await getCurrentUser();
 
     const bus = await prisma.bus.findUnique({
       where: { id: busId },
@@ -382,14 +400,17 @@ export async function PATCH(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { busId, latitude, longitude, speed, heading, accuracy } = body;
 
-    if (!busId || latitude === undefined || longitude === undefined) {
+    // التحقق من المدخلات باستخدام Zod
+    const parsed = TrackingPostSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "معرّف الباص والإحداثيات مطلوبة" },
+        { error: "بيانات غير صالحة", details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
+
+    const { busId, latitude, longitude, speed, heading, accuracy } = parsed.data;
 
     // التحقق من وجود الباص
     const bus = await prisma.bus.findUnique({ where: { id: busId } });
@@ -400,14 +421,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const parsedLatitude = parseFloat(latitude);
-    const parsedLongitude = parseFloat(longitude);
-    const parsedSpeed = speed !== undefined && speed !== null ? parseFloat(speed) : 0;
+    const parsedLatitude = latitude;
+    const parsedLongitude = longitude;
+    const parsedSpeed = speed ?? 0;
     const parsedHeading =
-      heading !== undefined && heading !== null && Number.isFinite(parseFloat(heading))
-        ? ((parseFloat(heading) % 360) + 360) % 360
+      heading !== undefined && heading !== null && Number.isFinite(heading)
+        ? ((heading % 360) + 360) % 360
         : null;
-    const parsedAccuracy = accuracy ? parseFloat(accuracy) : null;
+    const parsedAccuracy = accuracy ?? null;
 
     const location = await prisma.$transaction(async (tx) => {
       const now = new Date();
@@ -459,20 +480,9 @@ export async function POST(request: Request) {
         });
       }
 
-      // حفظ متوافق مع النظام الحالي
-      const createdLocation = await tx.busLocation.create({
-        data: {
-          busId,
-          latitude: parsedLatitude,
-          longitude: parsedLongitude,
-          speed: parsedSpeed,
-          heading: parsedHeading,
-          accuracy: parsedAccuracy,
-        },
-      });
-
-      // حفظ احترافي كسجل نقاط مرتبط بجلسة
-      await tx.trackingPoint.create({
+      // حفظ نقطة التتبع — النظام الجديد فقط (TrackingPoint)
+      // ملاحظة: BusLocation لم يعد يُكتب هنا — تحوّلنا لخطاب قاعدة واحدة
+      const trackingPoint = await tx.trackingPoint.create({
         data: {
           sessionId: session.id,
           busId,
@@ -493,20 +503,17 @@ export async function POST(request: Request) {
         },
       });
 
-      return createdLocation;
+      return trackingPoint;
     });
 
     // إبطال كاش التتبع عند تحديث الموقع
     apiCache.delete("tracking:all");
 
-    // حذف المواقع القديمة (أكثر من 24 ساعة) — بشكل غير متزامن
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    prisma.busLocation.deleteMany({
-      where: {
-        busId,
-        timestamp: { lt: oneDayAgo },
-      },
-    }).catch(() => {}); // لا تنتظر الحذف
+    // تنظيف TrackingPoints القديمة (أكثر من 7 أيام) — غير متزامن
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    prisma.trackingPoint.deleteMany({
+      where: { busId, timestamp: { lt: sevenDaysAgo } },
+    }).catch(() => {});
 
     return NextResponse.json(location, { status: 201 });
   } catch (error) {

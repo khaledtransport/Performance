@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { JWT_SECRET_BYTES } from "@/lib/jwt-config";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "university-transport-secret-key-2026"
-);
+const JWT_SECRET = JWT_SECRET_BYTES;
 
-// معدل الحد الأقصى للطلبات (Rate Limiting)
+// تحذير: Rate Limiting بالذاكرة لا يعمل على Vercel (serverless لا تحتفظ بالحالة)
+// الحل الدائم: إضافة Upstash Redis أو Vercel KV
+// TODO: استبدل هذا بـ @upstash/ratelimit عند التحضير للإنتاج
+// في الوقت الحالي: الحماية موجودة في login API (delay عند فشل تسجيل الدخول) + JWT مطلوب لكل طلب
 const rateLimit = new Map<string, { count: number; resetTime: number }>();
 
 // المسارات العامة التي لا تحتاج مصادقة
@@ -39,14 +41,16 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const cleanPath = pathname.replace("/Performance", "");
 
-  // تطبيق Rate Limiting على API routes
+  // Rate Limiting محلي (development) — غير فعّال على Vercel production
   if (cleanPath.startsWith("/api/")) {
-    const ip = request.ip || request.headers.get("x-forwarded-for") || "unknown";
+    // استخراج IP صحيح خلف proxy/CDN
+    const forwarded = request.headers.get("x-forwarded-for");
+    const ip = forwarded ? forwarded.split(",")[0].trim() : (request.headers.get("x-real-ip") ?? "unknown");
     const now = Date.now();
     const limit = rateLimit.get(ip);
 
     if (limit && now < limit.resetTime) {
-      if (limit.count >= 100) {
+      if (limit.count >= 200) {
         return NextResponse.json(
           { error: "تم تجاوز الحد الأقصى للطلبات. يرجى المحاولة لاحقاً." },
           { status: 429 }
