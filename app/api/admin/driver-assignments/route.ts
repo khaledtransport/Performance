@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hashPassword } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // GET: جلب جميع السائقين مع ربطهم بالحسابات والباصات
@@ -193,6 +193,53 @@ export async function POST(request: Request) {
         });
 
         return NextResponse.json({ success: true, message: "تم إلغاء تخصيص الباص" });
+      }
+
+      case "create_driver_user": {
+        // إنشاء حساب مستخدم جديد وربطه بسائق مباشرة
+        const { username, password, fullName } = body;
+        if (!driverId || !username || !password || !fullName) {
+          return NextResponse.json(
+            { error: "جميع الحقول مطلوبة" },
+            { status: 400 }
+          );
+        }
+
+        const clean = username.toLowerCase().trim();
+
+        // التحقق من عدم تكرار اسم المستخدم
+        const existing = await prisma.user.findUnique({ where: { username: clean } });
+        if (existing) {
+          return NextResponse.json(
+            { error: "اسم المستخدم مستخدم من قبل" },
+            { status: 400 }
+          );
+        }
+
+        // التحقق من أن السائق ليس مرتبطاً بحساب آخر
+        const existingUser = await prisma.user.findFirst({ where: { driverId } });
+        if (existingUser) {
+          return NextResponse.json(
+            { error: "هذا السائق مرتبط بحساب آخر" },
+            { status: 400 }
+          );
+        }
+
+        const passwordHash = await hashPassword(password);
+        const newUser = await prisma.user.create({
+          data: {
+            username: clean,
+            fullName: fullName.trim(),
+            passwordHash,
+            role: "DRIVER",
+            driverId,
+          },
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: `تم إنشاء الحساب: ${newUser.username}`,
+        });
       }
 
       default:

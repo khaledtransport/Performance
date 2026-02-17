@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -21,6 +23,10 @@ import {
   UserCheck,
   UserX,
   RefreshCw,
+  UserPlus,
+  X,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 interface DriverData {
@@ -63,6 +69,12 @@ export default function DriverAssignmentsPage() {
   // اختيارات مؤقتة
   const [selectedUser, setSelectedUser] = useState<Record<string, string>>({});
   const [selectedBus, setSelectedBus] = useState<Record<string, string>>({});
+
+  // نموذج إنشاء حساب
+  const [createModal, setCreateModal] = useState<{ open: boolean; driver: DriverData | null }>({ open: false, driver: null });
+  const [createForm, setCreateForm] = useState({ username: "", fullName: "", password: "", confirmPassword: "" });
+  const [createLoading, setCreateLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -118,6 +130,50 @@ export default function DriverAssignmentsPage() {
     }
   };
 
+  const openCreate = (driver: DriverData) => {
+    setCreateForm({ username: "", fullName: driver.name, password: "", confirmPassword: "" });
+    setShowPass(false);
+    setCreateModal({ open: true, driver });
+  };
+
+  const submitCreate = async () => {
+    if (!createModal.driver) return;
+    if (createForm.password !== createForm.confirmPassword) {
+      toast({ title: "خطأ", description: "كلمتا المرور غير متطابقتين", variant: "destructive" });
+      return;
+    }
+    if (createForm.password.length < 6) {
+      toast({ title: "خطأ", description: "كلمة المرور يجب أن تكون 6 أحرف على الأقل", variant: "destructive" });
+      return;
+    }
+    setCreateLoading(true);
+    try {
+      const res = await fetch("/Performance/api/admin/driver-assignments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_driver_user",
+          driverId: createModal.driver.id,
+          username: createForm.username,
+          fullName: createForm.fullName,
+          password: createForm.password,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "✅ تم بنجاح", description: data.message });
+        setCreateModal({ open: false, driver: null });
+        fetchData();
+      } else {
+        toast({ title: "خطأ", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "خطأ", description: "فشل الاتصال", variant: "destructive" });
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -127,7 +183,8 @@ export default function DriverAssignmentsPage() {
   }
 
   return (
-    <div
+    <>
+      <div
       className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900"
       dir="rtl"
     >
@@ -264,45 +321,50 @@ export default function DriverAssignmentsPage() {
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1">
-                            <Select
-                              value={selectedUser[driver.id] || ""}
-                              onValueChange={(v) =>
-                                setSelectedUser((prev) => ({
-                                  ...prev,
-                                  [driver.id]: v,
-                                }))
-                              }
-                            >
-                              <SelectTrigger className="w-[140px] h-8 text-xs">
-                                <SelectValue placeholder="اختر حساب..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {unlinkedUsers.map((u) => (
-                                  <SelectItem key={u.id} value={u.id}>
-                                    {u.fullName} ({u.username})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                          <div className="flex flex-col gap-2">
+                            {/* ربط بحساب موجود */}
+                            {unlinkedUsers.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Select
+                                  value={selectedUser[driver.id] || ""}
+                                  onValueChange={(v) =>
+                                    setSelectedUser((prev) => ({ ...prev, [driver.id]: v }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-35 h-8 text-xs">
+                                    <SelectValue placeholder="ربط بحساب..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {unlinkedUsers.map((u) => (
+                                      <SelectItem key={u.id} value={u.id}>
+                                        {u.fullName} ({u.username})
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  size="sm"
+                                  className="h-8 px-2"
+                                  disabled={!selectedUser[driver.id] || actionLoading === `link_user-${driver.id}`}
+                                  onClick={() => doAction("link_user", driver.id, { userId: selectedUser[driver.id] })}
+                                >
+                                  {actionLoading === `link_user-${driver.id}` ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Link2 className="w-3 h-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            )}
+                            {/* إنشاء حساب جديد */}
                             <Button
                               size="sm"
-                              className="h-8 px-2"
-                              disabled={
-                                !selectedUser[driver.id] ||
-                                actionLoading === `link_user-${driver.id}`
-                              }
-                              onClick={() =>
-                                doAction("link_user", driver.id, {
-                                  userId: selectedUser[driver.id],
-                                })
-                              }
+                              variant="outline"
+                              className="h-8 text-xs border-green-300 text-green-700 hover:bg-green-50 gap-1"
+                              onClick={() => openCreate(driver)}
                             >
-                              {actionLoading === `link_user-${driver.id}` ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Link2 className="w-3 h-3" />
-                              )}
+                              <UserPlus className="w-3 h-3" />
+                              إنشاء حساب جديد
                             </Button>
                           </div>
                         )}
@@ -349,7 +411,7 @@ export default function DriverAssignmentsPage() {
                                 }))
                               }
                             >
-                              <SelectTrigger className="w-[120px] h-8 text-xs">
+                              <SelectTrigger className="w-30 h-8 text-xs">
                                 <SelectValue placeholder="اختر باص..." />
                               </SelectTrigger>
                               <SelectContent>
@@ -391,6 +453,124 @@ export default function DriverAssignmentsPage() {
           )}
         </div>
       </div>
-    </div>
+
+      {/* مودال إنشاء حساب سائق */}
+      {createModal.open && createModal.driver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" dir="rtl">
+          {/* خلفية شفافة */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setCreateModal({ open: false, driver: null })} />
+
+          <Card className="relative w-full max-w-md shadow-2xl z-10">
+            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <div className="p-1.5 bg-green-100 dark:bg-green-900 rounded-lg">
+                    <UserPlus className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  إنشاء حساب للسائق
+                </CardTitle>
+                <button
+                  onClick={() => setCreateModal({ open: false, driver: null })}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-slate-500 mt-1">
+                السائق: <strong className="text-slate-700 dark:text-slate-300">{createModal.driver.name}</strong>
+              </p>
+            </CardHeader>
+
+            <CardContent className="pt-5 space-y-4">
+              {/* الاسم الكامل */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">الاسم الكامل</Label>
+                <Input
+                  value={createForm.fullName}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))}
+                  placeholder="مثال: محمد أحمد"
+                />
+              </div>
+
+              {/* اسم المستخدم */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">اسم المستخدم (للدخول)</Label>
+                <Input
+                  value={createForm.username}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value.toLowerCase().replace(/\s/g, "") }))}
+                  placeholder="مثال: driver1"
+                  dir="ltr"
+                  className="font-mono"
+                />
+                <p className="text-xs text-slate-400">أحرف إنجليزية وأرقام فقط، بدون مسافات</p>
+              </div>
+
+              {/* كلمة المرور */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">كلمة المرور</Label>
+                <div className="relative">
+                  <Input
+                    type={showPass ? "text" : "password"}
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
+                    placeholder="6 أحرف على الأقل"
+                    dir="ltr"
+                    className="font-mono pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass((v) => !v)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* تأكيد كلمة المرور */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">تأكيد كلمة المرور</Label>
+                <Input
+                  type={showPass ? "text" : "password"}
+                  value={createForm.confirmPassword}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+                  placeholder="أعد كتابة كلمة المرور"
+                  dir="ltr"
+                  className={`font-mono ${createForm.confirmPassword && createForm.confirmPassword !== createForm.password ? "border-red-400 focus:ring-red-400" : ""}`}
+                />
+                {createForm.confirmPassword && createForm.confirmPassword !== createForm.password && (
+                  <p className="text-xs text-red-500">كلمتا المرور غير متطابقتين</p>
+                )}
+              </div>
+
+              {/* أزرار */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  disabled={
+                    createLoading ||
+                    !createForm.username ||
+                    !createForm.fullName ||
+                    !createForm.password ||
+                    createForm.password !== createForm.confirmPassword
+                  }
+                  onClick={submitCreate}
+                >
+                  {createLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                  <span className="mr-1">{createLoading ? "جارٍ الإنشاء..." : "إنشاء الحساب"}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCreateModal({ open: false, driver: null })}
+                  disabled={createLoading}
+                >
+                  إلغاء
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </>
   );
 }
