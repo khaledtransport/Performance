@@ -102,14 +102,13 @@ function injectCSS() {
     .bm-glow {
       position: absolute;
       border-radius: 50%;
-      background: radial-gradient(ellipse at center, rgba(232,150,10,0.65) 0%, transparent 72%);
+      background: radial-gradient(ellipse at center, rgba(232,150,10,0.70) 0%, transparent 70%);
       pointer-events: none;
-      transform: translateX(-50%);
-      animation: bmGlow 2.2s ease-in-out infinite;
+      animation: bmGlow 2s ease-in-out infinite;
     }
     @keyframes bmGlow {
-      0%,100% { opacity: 0.28; transform: translateX(-50%) scaleX(0.85) scaleY(0.8); }
-      50%      { opacity: 0.62; transform: translateX(-50%) scaleX(1.1)  scaleY(1.05); }
+      0%,100% { opacity: 0.3;  transform: scaleX(0.88) scaleY(0.82); }
+      50%      { opacity: 0.68; transform: scaleX(1.12) scaleY(1.06); }
     }
   `;
   document.head.appendChild(s);
@@ -174,11 +173,13 @@ function createIcon(loc: BusLocation, isSelected: boolean, heading: number): L.D
     : `drop-shadow(0 1px 3px rgba(0,0,0,0.3))`;
 
   // توهج تحت الباص النشط (خارج bm-wrap = لا يدور، يثبت أفقياً)
-  // الحجم يتناسب مع حجم الأيقونة
-  const glowW = Math.round(bw * 1.7);
-  const glowH = Math.round(bw * 0.45);
+  // left/top محسوبة بدقة بدون translateX
+  const glowW = Math.round(bw * 1.8);
+  const glowH = Math.round(bw * 0.5);
+  const glowLeft = Math.round((ringW - glowW) / 2); // مركز الحاوية
+  const glowTop  = Math.round(pad + sz - glowH * 0.45); // أسفل الباص
   const glow = loc.isOnline
-    ? `<div class="bm-glow" style="width:${glowW}px;height:${glowH}px;left:${pad + bw / 2}px;bottom:${Math.round(pad * 0.4)}px;"></div>`
+    ? `<div class="bm-glow" style="width:${glowW}px;height:${glowH}px;left:${glowLeft}px;top:${glowTop}px;"></div>`
     : "";
 
   // ring عند التحديد — يلتف حول شكل الباص

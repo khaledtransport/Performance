@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -8,23 +8,9 @@ import { NotificationCenter } from "@/components/notification-center";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  BarChart3,
-  Menu,
-  X,
-  LayoutDashboard,
-  Settings,
-  Users,
-  Bus,
-  MapPin,
-  Clock,
-  Home,
-  Calendar,
-  Navigation,
-  FileText,
-  LogOut,
-  User,
-  Link2,
-  Megaphone,
+  BarChart3, Menu, X, LayoutDashboard, Settings, Users, Bus,
+  MapPin, Clock, Home, Calendar, Navigation, FileText,
+  LogOut, Link2, Megaphone, ChevronDown, Shield,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -132,37 +118,62 @@ const adminItems: NavigationItem[] = [
   },
 ];
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "مدير النظام", MANAGER: "مدير", DELEGATE: "مندوب", DRIVER: "سائق", VIEWER: "مشاهد",
+};
+
 export function NavigationBar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAdminDropdown, setShowAdminDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, logout } = useAuth();
+  const adminRef = useRef<HTMLDivElement>(null);
+  const userRef  = useRef<HTMLDivElement>(null);
 
-  // إخفاء شريط التنقل في صفحة الدخول
-  if (pathname === "/login") return null;
+  // إغلاق القوائم عند الضغط خارجها
+  useEffect(() => {
+    const fn = (e: MouseEvent) => {
+      if (adminRef.current && !adminRef.current.contains(e.target as Node)) setShowAdminDropdown(false);
+      if (userRef.current  && !userRef.current.contains(e.target as Node))  setShowUserMenu(false);
+    };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
 
-  // اختيار القائمة حسب الدور
+  // إغلاق عند تغيير الصفحة
+  useEffect(() => { setMobileMenuOpen(false); setShowAdminDropdown(false); }, [pathname]);
+
+  // منع التمرير خلف القائمة الجوالة
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileMenuOpen]);
+
+  if (pathname === "/login" || pathname === "/Performance/login") return null;
+
   const isDriver = user?.role === "DRIVER";
   const navigationItems = isDriver ? driverNavigationItems : fullNavigationItems;
 
   const isActive = (href: string) => {
-    if (href === "/") return pathname === "/" || pathname === "/Performance";
+    if (href === "/") return pathname === "/" || pathname === "/Performance" || pathname === "/Performance/";
     return pathname.startsWith(href) || pathname.startsWith(`/Performance${href}`);
   };
+
+  const isAdminActive = adminItems.some((a) => isActive(a.href));
 
   return (
     <>
       {/* Main Navigation Bar */}
       <nav
-        className={`sticky top-0 z-40 transition-all duration-300 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm`}
+        className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm"
         dir="rtl"
       >
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-5">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="flex items-center justify-between h-14">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all">
+              <div className="p-2 bg-linear-to-br from-blue-500 to-blue-700 rounded-lg group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all">
                 <BarChart3 className="w-5 h-5 text-white" />
               </div>
               <span className="text-lg font-bold text-slate-800 hidden sm:inline">
@@ -175,70 +186,52 @@ export function NavigationBar() {
               {navigationItems.map((item) => (
                 <div key={item.href}>
                   {item.category === "admin" ? (
-                    <div className="relative group">
+                    <div className="relative" ref={adminRef}>
                       <button
-                        onClick={() => setShowAdminDropdown(!showAdminDropdown)}
-                        className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all duration-300 ${
-                          showAdminDropdown ||
-                          adminItems.some((admin) =>
-                            pathname.startsWith(admin.href)
-                          )
-                            ? "bg-blue-50 text-blue-600"
-                            : "text-slate-600 hover:bg-slate-100 hover:text-blue-600"
+                        onClick={() => setShowAdminDropdown((v) => !v)}
+                        className={`relative h-9 px-3 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-all ${
+                          isAdminActive || showAdminDropdown
+                            ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400"
+                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                         }`}
                       >
-                        {item.icon}
-                        <span className="text-sm font-medium">
-                          {item.label}
-                        </span>
-                        <svg
-                          className={`w-4 h-4 transition-transform ${
-                            showAdminDropdown ? "rotate-180" : ""
-                          }`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                          />
-                        </svg>
+                        <Shield className="w-4 h-4" />
+                        {item.label}
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showAdminDropdown ? "rotate-180" : ""}`} />
+                        {isAdminActive && <span className="absolute bottom-0.5 right-1/2 translate-x-1/2 w-4 h-0.5 rounded-full bg-blue-500" />}
                       </button>
 
-                      {/* Dropdown Menu */}
-                      <div className="absolute right-0 mt-2 w-56 bg-white backdrop-blur-md border border-slate-200 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 py-2">
-                        {adminItems.map((admin) => (
-                          <Link
-                            key={admin.href}
-                            href={admin.href}
-                            className={`px-4 py-2 flex items-center gap-3 transition-all duration-300 ${
-                              isActive(admin.href)
-                                ? "bg-blue-50 text-blue-600 border-r-2 border-blue-600"
-                                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
-                            }`}
-                          >
-                            {admin.icon}
-                            <span className="text-sm font-medium">
+                      {showAdminDropdown && (
+                        <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 z-50">
+                          {adminItems.map((admin) => (
+                            <Link
+                              key={admin.href}
+                              href={admin.href}
+                              className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                                isActive(admin.href)
+                                  ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-medium border-r-2 border-blue-500"
+                                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                              }`}
+                            >
+                              {admin.icon}
                               {admin.label}
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <Link
                       href={item.href}
-                      className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all duration-300 ${
+                      className={`relative h-9 px-3 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-all ${
                         isActive(item.href)
-                          ? "bg-blue-50 text-blue-600"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-blue-600"
+                          ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400"
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                       }`}
                     >
                       {item.icon}
-                      <span className="text-sm font-medium">{item.label}</span>
+                      {item.label}
+                      {isActive(item.href) && <span className="absolute bottom-0.5 right-1/2 translate-x-1/2 w-4 h-0.5 rounded-full bg-blue-500" />}
                     </Link>
                   )}
                 </div>
@@ -268,45 +261,32 @@ export function NavigationBar() {
               <NotificationCenter />
               <ThemeToggle />
               {user && (
-                <div className="relative">
+                <div className="relative" ref={userRef}>
                   <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    onClick={() => setShowUserMenu((v) => !v)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-bold">
+                    <div className="w-7 h-7 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
                       {user.fullName.charAt(0)}
                     </div>
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 max-w-[100px] truncate">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 max-w-22.5 truncate hidden lg:block">
                       {user.fullName}
                     </span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showUserMenu ? "rotate-180" : ""}`} />
                   </button>
                   {showUserMenu && (
-                    <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-2 z-50">
-                      <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
-                        <p className="text-sm font-bold text-slate-800 dark:text-white">
-                          {user.fullName}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {user.role === "ADMIN"
-                            ? "مدير النظام"
-                            : user.role === "MANAGER"
-                            ? "مدير"
-                            : user.role === "DELEGATE"
-                            ? "مندوب"
-                            : user.role === "DRIVER"
-                            ? "سائق"
-                            : "مشاهد"}
+                    <div className="absolute left-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 z-50">
+                      <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
+                        <p className="text-sm font-bold text-slate-800 dark:text-white truncate">{user.fullName}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          {ROLE_LABELS[user.role] ?? user.role}
                         </p>
                       </div>
                       <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          logout();
-                        }}
-                        className="w-full px-4 py-2 flex items-center gap-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                        onClick={() => { setShowUserMenu(false); logout(); }}
+                        className="w-full px-4 py-2 flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
                       >
-                        <LogOut className="w-4 h-4" />
-                        تسجيل خروج
+                        <LogOut className="w-4 h-4" />تسجيل خروج
                       </button>
                     </div>
                   )}
@@ -317,78 +297,81 @@ export function NavigationBar() {
         </div>
       </nav>
 
-      {/* Mobile Menu */}
+      {/* قائمة الموبايل */}
       {mobileMenuOpen && (
-        <div
-          className="md:hidden bg-white/95 backdrop-blur-md border-b border-slate-200 fixed top-16 left-0 right-0 z-30"
-          dir="rtl"
-        >
-          <div className="max-w-7xl mx-auto px-4 py-4 space-y-1">
-            {navigationItems.map((item) => (
-              <div key={item.href}>
-                {item.category === "admin" ? (
-                  <>
-                    <button
-                      onClick={() => setShowAdminDropdown(!showAdminDropdown)}
-                      className="w-full px-4 py-2 rounded-lg flex items-center gap-2 text-slate-600 hover:bg-slate-100 transition-all"
-                    >
-                      {item.icon}
-                      <span className="text-sm font-medium flex-1 text-right">
-                        {item.label}
-                      </span>
-                      <svg
-                        className={`w-4 h-4 transition-transform ${
-                          showAdminDropdown ? "rotate-180" : ""
-                        }`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                        />
-                      </svg>
-                    </button>
-                    {showAdminDropdown && (
-                      <div className="pl-4 space-y-1 mt-1">
-                        {adminItems.map((admin) => (
-                          <Link
-                            key={admin.href}
-                            href={admin.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                              isActive(admin.href)
-                                ? "bg-blue-50 text-blue-600"
-                                : "text-slate-600 hover:bg-slate-50"
-                            }`}
-                          >
-                            {admin.label}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <Link
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-all ${
-                      isActive(item.href)
-                        ? "bg-blue-50 text-blue-600"
-                        : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    {item.icon}
-                    <span className="font-medium">{item.label}</span>
-                  </Link>
-                )}
+        <>
+          {/* Backdrop */}
+          <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-30" onClick={() => setMobileMenuOpen(false)} />
+
+          <div className="md:hidden fixed top-14 right-0 left-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-xl" dir="rtl">
+            {/* معلومات المستخدم */}
+            {user && (
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">
+                    {user.fullName.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800 dark:text-white">{user.fullName}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{ROLE_LABELS[user.role] ?? user.role}</p>
+                  </div>
+                </div>
+                <button onClick={() => { setMobileMenuOpen(false); logout(); }}
+                  className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 px-2.5 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950">
+                  <LogOut className="w-3.5 h-3.5" />خروج
+                </button>
               </div>
-            ))}
+            )}
+
+            <div className="px-3 py-3 space-y-0.5 max-h-[70vh] overflow-y-auto">
+              {navigationItems.map((item) => (
+                <div key={item.href}>
+                  {item.category === "admin" ? (
+                    <>
+                      <button
+                        onClick={() => setShowAdminDropdown((v) => !v)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                          isAdminActive
+                            ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400"
+                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <Shield className="w-4 h-4 shrink-0" />
+                        <span className="flex-1 text-right">{item.label}</span>
+                        <ChevronDown className={`w-4 h-4 transition-transform ${showAdminDropdown ? "rotate-180" : ""}`} />
+                      </button>
+                      {showAdminDropdown && (
+                        <div className="mt-0.5 mr-4 pr-3 border-r-2 border-slate-100 dark:border-slate-700 space-y-0.5">
+                          {adminItems.map((admin) => (
+                            <Link key={admin.href} href={admin.href} onClick={() => setMobileMenuOpen(false)}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                                isActive(admin.href)
+                                  ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-medium"
+                                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              }`}
+                            >
+                              {admin.icon}{admin.label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Link href={item.href} onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                        isActive(item.href)
+                          ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400"
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {item.icon}{item.label}
+                    </Link>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );
