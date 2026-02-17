@@ -98,6 +98,19 @@ function injectCSS() {
       color: #fff;
       border-color: transparent;
     }
+    /* توهج تحت الباص النشط — خارج bm-wrap حتى لا يدور مع الأيقونة */
+    .bm-glow {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(232,150,10,0.65) 0%, transparent 72%);
+      pointer-events: none;
+      transform: translateX(-50%);
+      animation: bmGlow 2.2s ease-in-out infinite;
+    }
+    @keyframes bmGlow {
+      0%,100% { opacity: 0.28; transform: translateX(-50%) scaleX(0.85) scaleY(0.8); }
+      50%      { opacity: 0.62; transform: translateX(-50%) scaleX(1.1)  scaleY(1.05); }
+    }
   `;
   document.head.appendChild(s);
   cssInjected = true;
@@ -160,6 +173,14 @@ function createIcon(loc: BusLocation, isSelected: boolean, heading: number): L.D
     ? `drop-shadow(0 2px 5px rgba(0,0,0,0.55)) drop-shadow(0 0 8px rgba(232,150,10,0.3))`
     : `drop-shadow(0 1px 3px rgba(0,0,0,0.3))`;
 
+  // توهج تحت الباص النشط (خارج bm-wrap = لا يدور، يثبت أفقياً)
+  // الحجم يتناسب مع حجم الأيقونة
+  const glowW = Math.round(bw * 1.7);
+  const glowH = Math.round(bw * 0.45);
+  const glow = loc.isOnline
+    ? `<div class="bm-glow" style="width:${glowW}px;height:${glowH}px;left:${pad + bw / 2}px;bottom:${Math.round(pad * 0.4)}px;"></div>`
+    : "";
+
   // ring عند التحديد — يلتف حول شكل الباص
   const ringW = bw + pad * 2;
   const ringH = sz + pad * 2;
@@ -179,6 +200,7 @@ function createIcon(loc: BusLocation, isSelected: boolean, heading: number): L.D
   return L.divIcon({
     className: "bm-icon",
     html: `<div style="position:relative;width:${cw}px;height:${ch}px;overflow:visible;">
+      ${glow}
       <div class="bm-wrap" style="position:absolute;top:${pad}px;left:${pad}px;width:${bw}px;height:${sz}px;filter:${shadow};transform:rotate(${Math.round(heading)}deg);transform-origin:50% 50%;">
         ${busSVG(color, alpha)}
       </div>
