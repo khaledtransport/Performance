@@ -304,8 +304,10 @@ export default function DriverTrackingPage() {
           setSendCount((prev) => prev + 1);
           setLastUpdate(new Date());
         } else {
-          const errData = await res.json().catch(() => ({}));
-          console.error("Failed to send location:", errData);
+          const text = await res.text().catch(() => "");
+          let errData: unknown = {};
+          try { errData = JSON.parse(text); } catch { errData = { raw: text.slice(0, 200) }; }
+          console.error(`Failed to send location [${res.status}]:`, errData);
         }
       } catch (error) {
         console.error("Send location error:", error);

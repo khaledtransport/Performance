@@ -22,7 +22,7 @@ import {
 import dynamic from "next/dynamic";
 
 // استيراد المكون ديناميكياً لتجنب مشاكل SSR
-const MapComponent = dynamic(() => import("@/components/map-tracker"), {
+const MapComponent = dynamic(() => import("@/components/map-tracker-v2"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-[500px] bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center">
