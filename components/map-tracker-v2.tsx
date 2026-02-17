@@ -63,10 +63,40 @@ function injectCSS() {
   const s = document.createElement("style");
   s.textContent = `
     .bm-icon { background: none !important; border: none !important; }
-    .bm-wrap { transition: transform 0.55s cubic-bezier(0.25,0.46,0.45,0.94); }
-    @keyframes bmPulse {
-      0%,100% { opacity:.45; transform:scale(.85); }
-      50%      { opacity:.8;  transform:scale(1.1); }
+    .bm-wrap {
+      transition: transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
+      will-change: transform;
+    }
+    .bm-ring {
+      position: absolute;
+      border: 2.5px solid #1A73E8;
+      border-radius: 6px;
+      animation: bmRingPulse 1.8s ease-out infinite;
+      pointer-events: none;
+    }
+    @keyframes bmRingPulse {
+      0%   { opacity: 0.85; transform: scale(0.9); }
+      65%  { opacity: 0;    transform: scale(1.35); }
+      100% { opacity: 0;    transform: scale(1.35); }
+    }
+    .bm-label {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.97);
+      color: #0f172a;
+      font: 700 8px/13px system-ui,sans-serif;
+      padding: 1px 5px;
+      border-radius: 4px;
+      white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+      pointer-events: none;
+      border: 0.5px solid rgba(0,0,0,0.08);
+    }
+    .bm-label-sel {
+      background: #1A73E8;
+      color: #fff;
+      border-color: transparent;
     }
   `;
   document.head.appendChild(s);
@@ -74,82 +104,90 @@ function injectCSS() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SVG أيقونة باص (منظر من أعلى، 40×40 viewBox)
+// حجم الأيقونة حسب الزوم (zoom-adaptive — مثل Uber)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getIconSize(zoom: number, isSelected: boolean): { h: number; w: number } {
+  // الارتفاع الأساسي حسب مستوى الزوم
+  const h = zoom <= 10 ? 22 : zoom <= 12 ? 28 : zoom <= 14 ? 34 : zoom <= 16 ? 40 : 46;
+  // عند التحديد: +6px
+  const fh = isSelected ? h + 6 : h;
+  // نسبة العرض إلى الارتفاع: 24:36 = 0.667 (باص أطول من عرضه)
+  return { h: fh, w: Math.round(fh * 0.667) };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SVG أيقونة باص — منظر علوي نظيف (مثل Uber/Careem)
+// viewBox="0 0 24 36"  أعلى=أمام  لا تفاصيل صغيرة تضيع عند الحجم الصغير
 // ─────────────────────────────────────────────────────────────────────────────
 
 function busSVG(color: string, alpha: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" style="display:block;opacity:${alpha};">
-  <!-- ظل -->
-  <ellipse cx="20" cy="37" rx="9" ry="2.5" fill="rgba(0,0,0,0.18)"/>
-  <!-- جسم الباص -->
-  <rect x="9" y="5" width="22" height="30" rx="6" fill="${color}" stroke="#111" stroke-width="1.3"/>
-  <!-- سقف داكن قليلاً -->
-  <rect x="10" y="6" width="20" height="28" rx="5.5" fill="${color}" opacity="0.85"/>
-  <!-- زجاج أمامي -->
-  <rect x="12" y="7.5" width="16" height="7" rx="3" fill="#B3E5FC" stroke="#0288D1" stroke-width="0.7" opacity="0.95"/>
-  <!-- زجاج خلفي -->
-  <rect x="13" y="27.5" width="14" height="4.5" rx="2.5" fill="#B3E5FC" stroke="#0288D1" stroke-width="0.6" opacity="0.8"/>
-  <!-- نوافذ وسط يسار -->
-  <rect x="9.5" y="17" width="3" height="4" rx="1" fill="#E1F5FE" stroke="#0288D1" stroke-width="0.5"/>
-  <rect x="9.5" y="22.5" width="3" height="4" rx="1" fill="#E1F5FE" stroke="#0288D1" stroke-width="0.5"/>
-  <!-- نوافذ وسط يمين -->
-  <rect x="27.5" y="17" width="3" height="4" rx="1" fill="#E1F5FE" stroke="#0288D1" stroke-width="0.5"/>
-  <rect x="27.5" y="22.5" width="3" height="4" rx="1" fill="#E1F5FE" stroke="#0288D1" stroke-width="0.5"/>
-  <!-- مصابيح أمامية -->
-  <rect x="12" y="8" width="4.5" height="2.5" rx="1.2" fill="#FFEE58" stroke="#F9A825" stroke-width="0.4"/>
-  <rect x="23.5" y="8" width="4.5" height="2.5" rx="1.2" fill="#FFEE58" stroke="#F9A825" stroke-width="0.4"/>
-  <!-- مصابيح خلفية -->
-  <rect x="12" y="31" width="4" height="2" rx="1" fill="#EF5350" stroke="#C62828" stroke-width="0.3"/>
-  <rect x="24" y="31" width="4" height="2" rx="1" fill="#EF5350" stroke="#C62828" stroke-width="0.3"/>
-  <!-- عجلات -->
-  <rect x="6"  y="10" width="4" height="6" rx="1.5" fill="#222" stroke="#000" stroke-width="0.5"/>
-  <rect x="30" y="10" width="4" height="6" rx="1.5" fill="#222" stroke="#000" stroke-width="0.5"/>
-  <rect x="6"  y="25" width="4" height="6" rx="1.5" fill="#222" stroke="#000" stroke-width="0.5"/>
-  <rect x="30" y="25" width="4" height="6" rx="1.5" fill="#222" stroke="#000" stroke-width="0.5"/>
-  <!-- خط وسط الجسم -->
-  <line x1="20" y1="15" x2="20" y2="26" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
-  <!-- سهم الاتجاه (أعلى = أمام) -->
-  <polygon points="20,2 17,6.5 23,6.5" fill="white" opacity="0.9" stroke="rgba(0,0,0,0.15)" stroke-width="0.5"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" style="display:block;width:100%;height:100%;opacity:${alpha};">
+  <!-- الجسم الرئيسي -->
+  <rect x="3" y="1.5" width="18" height="31" rx="5" fill="${color}"/>
+  <!-- زجاج أمامي (أعلى = أمام السفر) — أبيض شفاف = واضح فوراً -->
+  <rect x="5" y="3" width="14" height="8" rx="3.5" fill="rgba(255,255,255,0.38)"/>
+  <!-- وميض أمامي (خط لامع يميز الجبهة) -->
+  <rect x="5" y="3" width="14" height="1.5" rx="0.75" fill="rgba(255,255,255,0.55)"/>
+  <!-- وسط الجسم — إضاءة خفيفة -->
+  <rect x="5" y="14" width="14" height="10" rx="2" fill="rgba(255,255,255,0.11)"/>
+  <!-- مؤخرة — داكنة قليلاً لتمييز الاتجاه -->
+  <rect x="5" y="27.5" width="14" height="3.5" rx="1.5" fill="rgba(0,0,0,0.22)"/>
+  <!-- عجلات — 4 مستطيلات في الزوايا (لا تفاصيل صغيرة) -->
+  <rect x="0"  y="6"  width="4" height="7" rx="2" fill="rgba(0,0,0,0.48)"/>
+  <rect x="20" y="6"  width="4" height="7" rx="2" fill="rgba(0,0,0,0.48)"/>
+  <rect x="0"  y="22" width="4" height="7" rx="2" fill="rgba(0,0,0,0.48)"/>
+  <rect x="20" y="22" width="4" height="7" rx="2" fill="rgba(0,0,0,0.48)"/>
 </svg>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// createIcon — يُنشئ L.divIcon كاملاً
+// createIcon — يُنشئ L.divIcon حسب الزوم الحالي (zoom-adaptive كـ Uber)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function createIcon(loc: BusLocation, isSelected: boolean, heading: number): L.DivIcon {
   injectCSS();
 
-  const sz = isSelected ? 36 : 28;
-  const color = loc.isOnline ? "#F9A825" : "#9E9E9E";
-  const alpha = loc.isOnline ? "1" : "0.5";
+  const { h: sz, w: bw } = getIconSize(savedZoom, isSelected);
+  const pad = 7; // مساحة للظل والـ ring
+
+  // ألوان: نشط = أصفر داكن محترف، غير نشط = رمادي
+  const color = loc.isOnline ? "#E8960A" : "#9E9E9E";
+  const alpha = loc.isOnline ? "1" : "0.55";
+
+  // ظل بـ CSS filter (أوضح من SVG shadow)
+  const shadow = loc.isOnline
+    ? `drop-shadow(0 2px 5px rgba(0,0,0,0.55)) drop-shadow(0 0 8px rgba(232,150,10,0.3))`
+    : `drop-shadow(0 1px 3px rgba(0,0,0,0.3))`;
+
+  // ring عند التحديد — يلتف حول شكل الباص
+  const ringW = bw + pad * 2;
+  const ringH = sz + pad * 2;
   const ring = isSelected
-    ? `<div style="position:absolute;inset:-4px;border:2.5px solid #1A73E8;border-radius:50%;opacity:.55;pointer-events:none;"></div>`
-    : "";
-  const label = loc.busNumber
-    ? `<div style="position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.95);color:#222;font:700 7px/12px system-ui;padding:1px 4px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.15);border:.5px solid #ddd;">${loc.busNumber}</div>`
-    : "";
-  const glow = loc.isOnline
-    ? `<div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:18px;height:6px;border-radius:999px;background:radial-gradient(ellipse,rgba(249,168,37,.55) 0%,transparent 70%);filter:blur(1px);animation:bmPulse 1.6s ease-in-out infinite;pointer-events:none;"></div>`
+    ? `<div class="bm-ring" style="width:${ringW}px;height:${ringH}px;top:0;left:0;"></div>`
     : "";
 
-  const wrap = sz + 10;
-  const totalH = wrap + (loc.busNumber ? 16 : 0);
+  // Label — يظهر دائماً لكن يتكيف مع الحجم
+  const labelClass = `bm-label${isSelected ? " bm-label-sel" : ""}`;
+  const label = loc.busNumber
+    ? `<div class="${labelClass}" style="bottom:-14px;">${loc.busNumber}</div>`
+    : "";
+
+  const cw = ringW;
+  const ch = ringH + (loc.busNumber ? 14 : 0);
 
   return L.divIcon({
     className: "bm-icon",
-    html: `
-      <div style="position:relative;width:${wrap}px;height:${totalH}px;overflow:visible;">
-        <div class="bm-wrap" style="position:absolute;top:0;left:${(wrap - sz) / 2}px;width:${sz}px;height:${sz}px;transform:rotate(${Math.round(heading)}deg);">
-          ${busSVG(color, alpha)}
-        </div>
-        ${ring}
-        ${glow}
-        ${label}
-      </div>`,
-    iconSize: [wrap, totalH],
-    iconAnchor: [wrap / 2, sz / 2],
-    popupAnchor: [0, -(sz / 2 + 4)],
+    html: `<div style="position:relative;width:${cw}px;height:${ch}px;overflow:visible;">
+      <div class="bm-wrap" style="position:absolute;top:${pad}px;left:${pad}px;width:${bw}px;height:${sz}px;filter:${shadow};transform:rotate(${Math.round(heading)}deg);transform-origin:50% 50%;">
+        ${busSVG(color, alpha)}
+      </div>
+      ${ring}
+      ${label}
+    </div>`,
+    iconSize: [cw, ch],
+    iconAnchor: [cw / 2, pad + sz / 2],
+    popupAnchor: [0, -(pad + sz / 2 + 4)],
   });
 }
 
@@ -278,20 +316,28 @@ function buildPopup(loc: BusLocation, heading: number | null): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MapTracker({ locations, selectedBus, onSelectBus }: Props) {
-  const containerRef  = useRef<HTMLDivElement>(null);
-  const mapRef        = useRef<L.Map | null>(null);
-  const markersRef    = useRef<Map<string, L.Marker>>(new Map());
-  const routeRef      = useRef<L.Layer[]>([]);
+  const containerRef    = useRef<HTMLDivElement>(null);
+  const mapRef          = useRef<L.Map | null>(null);
+  const markersRef      = useRef<Map<string, L.Marker>>(new Map());
+  const routeRef        = useRef<L.Layer[]>([]);
 
   // per-bus state
-  const prevLatLng    = useRef<Map<string, { lat: number; lng: number }>>(new Map());
-  const prevHeading   = useRef<Map<string, number>>(new Map());
-  const prevStatus    = useRef<Map<string, string>>(new Map()); // "online_selected"
-  const roadSnap      = useRef<Map<string, { h: number | null; at: number }>>(new Map());
-  const snapInFlight  = useRef<Set<string>>(new Set());
+  const prevLatLng      = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const prevHeading     = useRef<Map<string, number>>(new Map());
+  const prevStatus      = useRef<Map<string, string>>(new Map()); // "online_selected"
+  const roadSnap        = useRef<Map<string, { h: number | null; at: number }>>(new Map());
+  const snapInFlight    = useRef<Set<string>>(new Set());
 
-  const firstRender   = useRef(true);
-  const prevSelected  = useRef<string | null>(null);
+  const firstRender     = useRef(true);
+  const prevSelected    = useRef<string | null>(null);
+
+  // للوصول إلى آخر بيانات وآخر باص محدد داخل zoomend (بدون stale closure)
+  const locsRef         = useRef<BusLocation[]>([]);
+  const selectedBusRef  = useRef<string | null>(selectedBus);
+
+  // نعرف الـ refs قبل الاستخدام في zoomend
+  // (selectedBusRef يُحدَّث في markers useEffect)
+  selectedBusRef.current = selectedBus;
 
   // نعرض جميع الباصات النشطة على الخريطة — حتى التي بدون GPS تظهر عند مركز جدة
   const mapLocations = locations;
@@ -318,16 +364,32 @@ export default function MapTracker({ locations, selectedBus, onSelectBus }: Prop
 
     mapRef.current = map;
 
-    // ⬇ احفظ الزوم والمركز عند كل تغيير — لا يُفقد عند re-mount
-    const save = () => {
-      savedZoom = map.getZoom();
+    // ⬇ احفظ المركز عند الحركة
+    const onMoveEnd = () => {
       const c = map.getCenter();
       savedCenter = [c.lat, c.lng];
     };
-    map.on("zoomend moveend", save);
+
+    // ⬇ عند تغيير الزوم: احفظ + أعِد رسم جميع الأيقونات بالحجم الجديد (zoom-adaptive)
+    const onZoomEnd = () => {
+      savedZoom = map.getZoom();
+      const c = map.getCenter();
+      savedCenter = [c.lat, c.lng];
+      // أعِد إنشاء جميع الأيقونات بالحجم المناسب للزوم الجديد
+      markersRef.current.forEach((mk, id) => {
+        const loc = locsRef.current.find((l) => l.busId === id);
+        if (!loc) return;
+        const h = prevHeading.current.get(id) ?? 0;
+        mk.setIcon(createIcon(loc, id === selectedBusRef.current, h));
+      });
+    };
+
+    map.on("moveend", onMoveEnd);
+    map.on("zoomend", onZoomEnd);
 
     return () => {
-      map.off("zoomend moveend", save);
+      map.off("moveend", onMoveEnd);
+      map.off("zoomend", onZoomEnd);
       map.remove();
       mapRef.current = null;
     };
@@ -337,6 +399,10 @@ export default function MapTracker({ locations, selectedBus, onSelectBus }: Prop
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+
+    // حدِّث الـ refs للاستخدام في zoomend
+    locsRef.current = mapLocations;
+    selectedBusRef.current = selectedBus;
 
     const activeIds = new Set(mapLocations.map((l) => l.busId));
 
