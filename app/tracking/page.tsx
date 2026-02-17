@@ -54,6 +54,8 @@ export default function TrackingPage() {
   const [selectedBus, setSelectedBus] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [sseConnected, setSseConnected] = useState(false);
+  // mounted: يمنع عدم تطابق SSR ↔ client لأي حالة تعتمد على العميل فقط
+  const [mounted, setMounted] = useState(false);
 
   // جلب يدوي (زر التحديث)
   const fetchLocations = useCallback(async () => {
@@ -71,6 +73,9 @@ export default function TrackingPage() {
       setLoading(false);
     }
   }, []);
+
+  // mounted: يُفعَّل مرة واحدة بعد أول render على الـ client
+  useEffect(() => { setMounted(true); }, []);
 
   // جلب أولي فوري
   useEffect(() => {
@@ -146,17 +151,20 @@ export default function TrackingPage() {
 
           <div className="flex items-center gap-3">
             <Button
-              variant={autoRefresh ? "default" : "outline"}
+              variant={mounted && autoRefresh ? "default" : "outline"}
               size="sm"
               onClick={() => setAutoRefresh(!autoRefresh)}
               className="gap-2"
+              suppressHydrationWarning
             >
-              {autoRefresh && sseConnected ? (
+              {mounted && autoRefresh && sseConnected ? (
                 <Wifi className="w-4 h-4" />
               ) : (
                 <WifiOff className="w-4 h-4" />
               )}
-              {autoRefresh ? (sseConnected ? "مباشر" : "جاري الاتصال...") : "متوقف"}
+              <span suppressHydrationWarning>
+                {!mounted ? "جاري التحميل..." : autoRefresh ? (sseConnected ? "مباشر" : "جاري الاتصال...") : "متوقف"}
+              </span>
             </Button>
             <Button
               variant="outline"
@@ -164,7 +172,7 @@ export default function TrackingPage() {
               onClick={fetchLocations}
               className="gap-2"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${mounted && loading ? "animate-spin" : ""}`} />
               تحديث
             </Button>
           </div>
