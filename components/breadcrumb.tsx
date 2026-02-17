@@ -65,7 +65,7 @@ export function Breadcrumb() {
           {breadcrumbs.map((breadcrumb, index) => (
             <React.Fragment key={breadcrumb.href}>
               {index > 0 && (
-                <ChevronLeft className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                <ChevronLeft className="w-5 h-5 text-slate-400 shrink-0" />
               )}
               {index === breadcrumbs.length - 1 ? (
                 <span className="text-slate-800 font-semibold truncate">

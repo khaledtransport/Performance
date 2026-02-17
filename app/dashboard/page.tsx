@@ -154,7 +154,7 @@ export default function DashboardPage() {
             />
           </div>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[200px] bg-white border-slate-200 text-slate-900">
+            <SelectTrigger className="w-50 bg-white border-slate-200 text-slate-900">
               <SelectValue placeholder="فلترة حسب الحالة" />
             </SelectTrigger>
             <SelectContent>

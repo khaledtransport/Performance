@@ -421,7 +421,7 @@ export function NotificationCenter() {
     <>
       {/* ============ بانر الإشعار الجديد ============ */}
       {banner && (
-        <div className="fixed top-4 left-4 right-4 z-[100] animate-in slide-in-from-top">
+        <div className="fixed top-4 left-4 right-4 z-100 animate-in slide-in-from-top">
           <div
             className={`mx-auto max-w-md rounded-xl shadow-2xl overflow-hidden ${getConfig(banner.type).border} ${getConfig(banner.type).bgUnread}`}
             onClick={() => {
@@ -485,7 +485,7 @@ export function NotificationCenter() {
         >
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse shadow-lg shadow-red-500/30">
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse shadow-lg shadow-red-500/30">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -504,9 +504,9 @@ export function NotificationCenter() {
               الجوال: fixed في وسط الشاشة مع هوامش متساوية من اليمين واليسار
               الديسكتوب: absolute ملتصق بزر الجرس من اليمين
             */}
-            <div className="fixed inset-x-3 top-14 bottom-auto max-h-[80vh] md:absolute md:inset-auto md:right-0 md:left-auto md:top-full md:mt-2 md:w-[400px] md:max-h-[520px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden">
+            <div className="fixed inset-x-3 top-14 bottom-auto max-h-[80vh] md:absolute md:inset-auto md:right-0 md:left-auto md:top-full md:mt-2 md:w-100 md:max-h-130 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-l from-blue-50 to-white dark:from-blue-950/30 dark:to-slate-900 shrink-0">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-linear-to-l from-blue-50 to-white dark:from-blue-950/30 dark:to-slate-900 shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
                     <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -608,14 +608,14 @@ export function NotificationCenter() {
 
                                 {/* العنوان */}
                                 <h4
-                                  className={`text-[13px] sm:text-sm font-bold leading-normal break-words ${notif.isRead ? "text-slate-500 dark:text-slate-400 font-medium" : conf.titleColor}`}
+                                  className={`text-[13px] sm:text-sm font-bold leading-normal wrap-break-word ${notif.isRead ? "text-slate-500 dark:text-slate-400 font-medium" : conf.titleColor}`}
                                 >
                                   {notif.title}
                                 </h4>
 
                                 {/* نص الرسالة - كامل بدون قص */}
                                 <p
-                                  className={`text-[12px] sm:text-[13px] leading-relaxed mt-1 break-words ${notif.isRead ? "text-slate-400 dark:text-slate-500" : conf.textColor}`}
+                                  className={`text-[12px] sm:text-[13px] leading-relaxed mt-1 wrap-break-word ${notif.isRead ? "text-slate-400 dark:text-slate-500" : conf.textColor}`}
                                 >
                                   {notif.message}
                                 </p>

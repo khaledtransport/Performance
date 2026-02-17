@@ -180,7 +180,7 @@ export default function RepresentativesPage() {
                   لا يوجد مندوبين مسجلين
                 </p>
               ) : (
-                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                <div className="space-y-2 max-h-125 overflow-y-auto">
                   {representatives.map((rep) => (
                     <div
                       key={rep.id}

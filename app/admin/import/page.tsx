@@ -296,9 +296,9 @@ export default function ImportPage() {
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
                   {result.success ? (
-                    <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+                    <CheckCircle className="w-6 h-6 text-green-600 shrink-0" />
                   ) : (
-                    <XCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
+                    <XCircle className="w-6 h-6 text-red-600 shrink-0" />
                   )}
                   <div className="flex-1">
                     <h3

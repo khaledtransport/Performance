@@ -189,13 +189,13 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
         {/* العنوان */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+              <div className="p-2 bg-linear-to-br from-indigo-500 to-purple-600 rounded-xl">
                 <BarChart3 className="w-6 h-6 text-white" />
               </div>
               التقارير والإحصائيات
@@ -614,7 +614,7 @@ function StatCard({
   };
 
   return (
-    <Card className={`bg-gradient-to-br ${colors[color]} border-0`}>
+    <Card className={`bg-linear-to-br ${colors[color]} border-0`}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <div className={iconColors[color]}>{icon}</div>

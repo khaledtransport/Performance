@@ -114,7 +114,7 @@ export function PWAPermissionsPrompt() {
   if (!show || !needsPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-[430px] z-50 animate-slide-up">
+    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-107.5 z-50 animate-slide-up">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4">
         <div className="flex items-start gap-3">
           <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-xl shrink-0">

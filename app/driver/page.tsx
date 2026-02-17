@@ -87,7 +87,7 @@ export default function DriverDashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800" dir="rtl">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800" dir="rtl">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-600 mb-4" />
           <p className="text-lg text-muted-foreground">جارٍ تحميل لوحة التحكم...</p>
@@ -99,7 +99,7 @@ export default function DriverDashboardPage() {
   // السائق غير مربوط
   if (data && !data.linked) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white dark:from-gray-900 dark:to-gray-800 p-4" dir="rtl">
+      <div className="min-h-screen bg-linear-to-b from-amber-50 to-white dark:from-gray-900 dark:to-gray-800 p-4" dir="rtl">
         <div className="max-w-md mx-auto mt-20">
           <Card className="border-2 border-amber-300">
             <CardContent className="pt-8 text-center">
@@ -129,9 +129,9 @@ export default function DriverDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800" dir="rtl">
+    <div className="min-h-screen bg-linear-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800" dir="rtl">
       {/* Header */}
-      <div className="bg-gradient-to-l from-blue-600 to-blue-800 text-white py-6 px-4">
+      <div className="bg-linear-to-l from-blue-600 to-blue-800 text-white py-6 px-4">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -218,7 +218,7 @@ export default function DriverDashboardPage() {
 
         {/* الإحصائيات */}
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-0">
+          <Card className="bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-0">
             <CardContent className="p-4 text-center">
               <BarChart3 className="w-6 h-6 mx-auto text-blue-600 mb-1" />
               <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
@@ -227,7 +227,7 @@ export default function DriverDashboardPage() {
               <p className="text-xs text-blue-500">رحلات اليوم</p>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-0">
+          <Card className="bg-linear-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-0">
             <CardContent className="p-4 text-center">
               <Clock className="w-6 h-6 mx-auto text-purple-600 mb-1" />
               <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
@@ -236,7 +236,7 @@ export default function DriverDashboardPage() {
               <p className="text-xs text-purple-500">إجمالي الرحلات</p>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-0">
+          <Card className="bg-linear-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-0">
             <CardContent className="p-4 text-center">
               <Route className="w-6 h-6 mx-auto text-orange-600 mb-1" />
               <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">

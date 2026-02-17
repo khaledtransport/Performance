@@ -315,7 +315,7 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
             return (
               <div
                 key={slot.display}
-                className="flex-shrink-0 w-48 border-l border-slate-100 last:border-l-0 px-1 h-full overflow-y-auto"
+                className="shrink-0 w-48 border-l border-slate-100 last:border-l-0 px-1 h-full overflow-y-auto"
               >
                 {/* Header */}
                 <div className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm py-1.5 mb-1 text-center border-b border-slate-200 rounded-t shadow-sm">
@@ -362,7 +362,7 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
 
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-1">
-                            <MapPin className="w-2.5 h-2.5 text-blue-600 flex-shrink-0" />
+                            <MapPin className="w-2.5 h-2.5 text-blue-600 shrink-0" />
                             <p
                               className="text-xs font-bold text-slate-800 truncate"
                               title={trip.route?.university?.name}
@@ -372,7 +372,7 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
                           </div>
 
                           <div className="flex items-center gap-1">
-                            <MapPin className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
+                            <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                             <p
                               className="text-[10px] text-slate-500 truncate"
                               title={trip.route?.districts
@@ -388,7 +388,7 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
                           </div>
 
                           <div className="flex items-center gap-1 pt-1 border-t border-slate-200/50 mt-1">
-                            <User className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
+                            <User className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                             <p className="text-[10px] text-slate-600 truncate font-medium">
                               {trip.route?.driver?.name}
                             </p>

@@ -762,7 +762,7 @@ export default function DriverTrackingPage() {
   const activeBus = assignedBus || availableBuses.find((b) => b.id === selectedBusId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 p-4 md:p-6" dir="rtl">
+    <div className="min-h-screen bg-linear-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 p-4 md:p-6" dir="rtl">
       <div className="max-w-2xl mx-auto space-y-4">
         {/* العنوان */}
         <div className="text-center mb-6">
@@ -1020,7 +1020,7 @@ export default function DriverTrackingPage() {
           <Card className="border-2 border-red-300 bg-red-50 dark:bg-red-900/30">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3 text-red-600 dark:text-red-400">
-                <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
                 <p className="text-sm">{gpsError}</p>
               </div>
             </CardContent>

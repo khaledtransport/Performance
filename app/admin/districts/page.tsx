@@ -185,7 +185,7 @@ export default function DistrictsPage() {
                   لا توجد أحياء مسجلة
                 </p>
               ) : (
-                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                <div className="space-y-2 max-h-125 overflow-y-auto">
                   {districts.map((district) => (
                     <div
                       key={district.id}

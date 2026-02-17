@@ -163,7 +163,7 @@ export default function UniversitiesPage() {
                   لا توجد جامعات مسجلة
                 </p>
               ) : (
-                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                <div className="space-y-2 max-h-125 overflow-y-auto">
                   {universities.map((university) => (
                     <div
                       key={university.id}

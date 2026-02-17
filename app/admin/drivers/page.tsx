@@ -180,7 +180,7 @@ export default function DriversPage() {
                   لا يوجد سائقين مسجلين
                 </p>
               ) : (
-                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                <div className="space-y-2 max-h-125 overflow-y-auto">
                   {drivers.map((driver) => (
                     <div
                       key={driver.id}

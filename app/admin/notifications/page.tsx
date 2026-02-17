@@ -238,12 +238,12 @@ export default function AdminNotificationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900" dir="rtl">
+    <div className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900" dir="rtl">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/30">
+            <div className="p-3 bg-linear-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/30">
               <Megaphone className="w-7 h-7 text-white" />
             </div>
             <div>
@@ -326,7 +326,7 @@ export default function AdminNotificationsPage() {
                     placeholder="اكتب تفاصيل الإشعار هنا..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    className="w-full min-h-[120px] px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-right text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full min-h-30 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-right text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     maxLength={500}
                   />
                   <p className="text-xs text-slate-400 mt-1">{message.length}/500</p>
@@ -393,7 +393,7 @@ export default function AdminNotificationsPage() {
             <Button
               onClick={handleSend}
               disabled={sending || !title.trim() || !message.trim() || (target === "SELECTED_DRIVERS" && selectedDrivers.length === 0)}
-              className="w-full py-6 text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl shadow-blue-500/25 transition-all duration-300 rounded-xl"
+              className="w-full py-6 text-lg font-bold bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl shadow-blue-500/25 transition-all duration-300 rounded-xl"
             >
               {sending ? (
                 <span className="flex items-center gap-2">

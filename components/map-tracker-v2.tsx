@@ -625,7 +625,7 @@ export default function MapTracker({ locations, selectedBus, onSelectBus }: Prop
     <div className="relative w-full">
       <div
         ref={containerRef}
-        className="w-full h-[500px] md:h-[600px] rounded-xl z-0"
+        className="w-full h-125 md:h-150 rounded-xl z-0"
         style={{ direction: "ltr" }}
       />
       {locations.length === 0 && (
