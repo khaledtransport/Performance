@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
 import {
   Card,
   CardContent,
@@ -125,11 +127,13 @@ export default function TrackingPage() {
   const onlineBuses = locations.filter((l) => l.isOnline);
   const offlineBuses = locations.filter((l) => !l.isOnline);
 
+  // date-fns: format ثابت لا يتأثر بـ locale السيرفر (SSR-safe)
   const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString("ar-SA", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    try {
+      return format(new Date(dateStr), "hh:mm a", { locale: ar });
+    } catch {
+      return "--:--";
+    }
   };
 
   return (
