@@ -51,11 +51,7 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [trackingNotifications, setTrackingNotifications] = useState<TrackingNotification[]>([]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const getStatusBadge(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -100,6 +96,10 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }, [selectedDate, filterStatus]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const getStatusBadge = (status: string) => {
     const styles = {
