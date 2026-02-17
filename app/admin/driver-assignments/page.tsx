@@ -453,6 +453,7 @@ export default function DriverAssignmentsPage() {
           )}
         </div>
       </div>
+    </div>
 
       {/* مودال إنشاء حساب سائق */}
       {createModal.open && createModal.driver && (
