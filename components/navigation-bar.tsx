@@ -124,12 +124,15 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function NavigationBar() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAdminDropdown, setShowAdminDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, logout } = useAuth();
   const adminRef = useRef<HTMLDivElement>(null);
   const userRef  = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setMounted(true); }, []);
 
   // إغلاق القوائم عند الضغط خارجها
   useEffect(() => {
@@ -152,7 +155,8 @@ export function NavigationBar() {
 
   if (pathname === "/login" || pathname === "/Performance/login") return null;
 
-  const isDriver = user?.role === "DRIVER";
+  // Use full nav on SSR to match server render; switch to role-based after mount
+  const isDriver = mounted && user?.role === "DRIVER";
   const navigationItems = isDriver ? driverNavigationItems : fullNavigationItems;
 
   const isActive = (href: string) => {
@@ -168,6 +172,7 @@ export function NavigationBar() {
       <nav
         className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm"
         dir="rtl"
+        suppressHydrationWarning
       >
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-14">
