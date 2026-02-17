@@ -42,39 +42,49 @@ function getBusIconUrl(direction: BusDirection): string {
   return `/Performance/icons/bus/bus-${direction}.png`;
 }
 
+// حقن CSS الأيقونة مرة واحدة فقط (بدل تكرارها لكل علامة)
+let busStyleInjected = false;
+function ensureBusStyles() {
+  if (busStyleInjected || typeof document === 'undefined') return;
+  const style = document.createElement('style');
+  style.textContent = `
+    .bus-marker-icon{background:none!important;border:none!important;}
+    @keyframes busGlow {
+      0%, 100% { transform: scale(0.9); opacity: 0.5; }
+      50% { transform: scale(1.1); opacity: 0.85; }
+    }
+  `;
+  document.head.appendChild(style);
+  busStyleInjected = true;
+}
+
 const createBusIcon = (isOnline: boolean, isSelected: boolean, heading?: number | null, busNumber?: string) => {
+  ensureBusStyles();
   const direction = heading != null && Number.isFinite(heading) ? snapToEightDirections(heading) : 0;
   const iconUrl = getBusIconUrl(direction);
 
-  // حجم أيقونة مصغّر ومناسب — أصغر وأنظف على الخريطة
-  const scale = isSelected ? 1.2 : 1;
-  const w = Math.round(32 * scale);
-  const h = Math.round(38 * scale);
+  // حجم صغير متناسب مع الخريطة
+  const scale = isSelected ? 1.15 : 1;
+  const w = Math.round(24 * scale);
+  const h = Math.round(28 * scale);
 
   const accent = isSelected ? '#1A73E8' : isOnline ? '#4CAF50' : '#9E9E9E';
-  const opacity = isOnline ? '1' : '0.45';
-  const totalW = w + 8;
-  const totalH = h + (busNumber ? 14 : 2);
-  const glowColor = isOnline ? 'rgba(22,163,74,0.5)' : 'rgba(120,120,120,0.15)';
+  const opacity = isOnline ? '1' : '0.4';
+  const totalW = w + 6;
+  const totalH = h + (busNumber ? 12 : 2);
+  const glowColor = isOnline ? 'rgba(22,163,74,0.45)' : 'rgba(120,120,120,0.1)';
 
   return L.divIcon({
     className: "bus-marker-icon",
     html: `
       <div style="position:relative;width:${totalW}px;height:${totalH}px;overflow:visible;">
-        ${isOnline ? `<div style="position:absolute;left:${totalW / 2 - 14}px;top:${h - 4}px;width:28px;height:9px;border-radius:999px;background:radial-gradient(ellipse at center, ${glowColor} 0%, rgba(22,163,74,0.2) 55%, rgba(22,163,74,0) 100%);filter:blur(1px);animation:busGlow 1.5s ease-in-out infinite;z-index:2;pointer-events:none;"></div>` : ''}
+        ${isOnline ? `<div style="position:absolute;left:${totalW / 2 - 10}px;top:${h - 3}px;width:20px;height:7px;border-radius:999px;background:radial-gradient(ellipse at center, ${glowColor} 0%, rgba(22,163,74,0.15) 55%, rgba(22,163,74,0) 100%);filter:blur(1px);animation:busGlow 1.5s ease-in-out infinite;z-index:2;pointer-events:none;"></div>` : ''}
         <div style="position:absolute;top:1px;left:${(totalW - w) / 2}px;width:${w}px;height:${h}px;cursor:pointer;z-index:10;">
-          <img src="${iconUrl}" width="${w}" height="${h}" style="display:block;opacity:${opacity};filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3))${!isOnline ? ' grayscale(0.5)' : ''};pointer-events:none;object-fit:contain;" />
+          <img src="${iconUrl}" width="${w}" height="${h}" style="display:block;opacity:${opacity};filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25))${!isOnline ? ' grayscale(0.5)' : ''};pointer-events:none;object-fit:contain;" />
         </div>
-        ${isSelected ? `<div style="position:absolute;top:-1px;left:${(totalW - w - 6) / 2}px;width:${w + 6}px;height:${h + 3}px;border:2px solid ${accent};border-radius:8px;opacity:0.5;pointer-events:none;"></div>` : ''}
-        ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.92);color:#333;font-size:7px;font-weight:700;padding:0.5px 4px;border-radius:3px;white-space:nowrap;z-index:20;box-shadow:0 1px 2px rgba(0,0,0,0.12);border:1px solid #e0e0e0;">${busNumber}</div>` : ''}
+        ${isSelected ? `<div style="position:absolute;top:-1px;left:${(totalW - w - 4) / 2}px;width:${w + 4}px;height:${h + 2}px;border:2px solid ${accent};border-radius:6px;opacity:0.5;pointer-events:none;"></div>` : ''}
+        ${busNumber ? `<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.92);color:#333;font-size:6.5px;font-weight:700;padding:0 3px;border-radius:2px;white-space:nowrap;z-index:20;box-shadow:0 0.5px 1.5px rgba(0,0,0,0.1);border:0.5px solid #e0e0e0;line-height:11px;">${busNumber}</div>` : ''}
       </div>
-      <style>
-        .bus-marker-icon{background:none!important;border:none!important;}
-        @keyframes busGlow {
-          0%, 100% { transform: scale(0.9); opacity: 0.55; }
-          50% { transform: scale(1.12); opacity: 0.9; }
-        }
-      </style>
     `,
     iconSize: [totalW, totalH],
     iconAnchor: [totalW / 2, h / 2 + 1],
@@ -189,6 +199,8 @@ export default function MapTracker({
   const roadSnapRef = useRef<Map<string, { heading: number | null; updatedAt: number }>>(new Map());
   const roadSnapInFlightRef = useRef<Set<string>>(new Set());
   const isFirstRenderRef = useRef(true);
+  const prevSelectedBusRef = useRef<string | null>(null);
+  const userInteractedRef = useRef(false);
 
   // تهيئة الخريطة
   useEffect(() => {
@@ -214,7 +226,14 @@ export default function MapTracker({
 
     mapRef.current = map;
 
+    // تتبع تفاعل المستخدم مع الخريطة (زوم/سحب) لعدم إعادة ضبط العرض
+    const onUserInteraction = () => { userInteractedRef.current = true; };
+    map.on('zoomstart', onUserInteraction);
+    map.on('dragstart', onUserInteraction);
+
     return () => {
+      map.off('zoomstart', onUserInteraction);
+      map.off('dragstart', onUserInteraction);
       map.remove();
       mapRef.current = null;
     };
@@ -240,131 +259,7 @@ export default function MapTracker({
       }
     });
 
-    // حذف خطوط المسارات القديمة
-    routeLinesRef.current.forEach(line => line.remove());
-    routeLinesRef.current = [];
-
     // تم تعطيل رسم مسار جميع الباصات عبر OSRM لتقليل التأخير وتحسين سلاسة التحديث الحي.
-
-    // إذا تم اختيار باص، جلب وعرض مساره السابق مطابق للطرقات
-    if (selectedBus) {
-      const selectedLoc = locations.find(l => l.busId === selectedBus);
-      if (selectedLoc && selectedLoc.isOnline) {
-        fetch(`/Performance/api/tracking?busId=${selectedBus}`)
-          .then(res => res.ok ? res.json() : [])
-          .then(async (history: { latitude: number; longitude: number; timestamp: string; speed?: number }[]) => {
-            if (history.length < 2) return;
-            
-            // ترتيب من الأقدم للأحدث
-            const sorted = [...history].reverse();
-            const gpsPoints = sorted.map(h => [h.latitude, h.longitude] as [number, number]);
-            
-            // استخدام OSRM Match API لمطابقة نقاط GPS مع الطرقات الحقيقية
-            const coords = sorted.map(h => `${h.longitude},${h.latitude}`).join(';');
-            const timestamps = sorted.map(h => Math.floor(new Date(h.timestamp).getTime() / 1000)).join(';');
-            const radiuses = sorted.map(() => '25').join(';'); // دقة 25 متر
-            
-            try {
-              const matchRes = await fetch(
-                `https://router.project-osrm.org/match/v1/driving/${coords}?overview=full&geometries=geojson&timestamps=${timestamps}&radiuses=${radiuses}`
-              );
-              const matchData = await matchRes.json();
-              
-              if (matchData?.matchings?.[0]?.geometry?.coordinates) {
-                // رسم جميع المطابقات
-                for (const matching of matchData.matchings) {
-                  const roadPoints = matching.geometry.coordinates.map(
-                    (c: [number, number]) => [c[1], c[0]] as [number, number]
-                  );
-                  
-                  // ظل المسار
-                  const shadowRoute = L.polyline(roadPoints, {
-                    color: '#000',
-                    weight: 8,
-                    opacity: 0.06,
-                    smoothFactor: 1,
-                  }).addTo(map);
-                  routeLinesRef.current.push(shadowRoute);
-
-                  // خط المسار الرئيسي - أخضر على الطريق 
-                  const busRoute = L.polyline(roadPoints, {
-                    color: '#0f9d58',
-                    weight: 5,
-                    opacity: 0.75,
-                    smoothFactor: 1,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }).addTo(map);
-                  routeLinesRef.current.push(busRoute);
-
-                  // خط متحرك فوقه
-                  const animatedLine = L.polyline(roadPoints, {
-                    color: '#34A853',
-                    weight: 2.5,
-                    opacity: 0.8,
-                    dashArray: '6, 14',
-                    smoothFactor: 1,
-                  }).addTo(map);
-                  routeLinesRef.current.push(animatedLine);
-                }
-
-                // نقطة البداية 
-                const startPoint = gpsPoints[0];
-                const startMarker = L.circleMarker(startPoint, {
-                  radius: 8,
-                  fillColor: '#4CAF50',
-                  color: 'white',
-                  weight: 3,
-                  fillOpacity: 1,
-                }).addTo(map).bindTooltip('بداية المسار', { 
-                  direction: 'top', 
-                  className: 'route-tooltip',
-                  permanent: false,
-                });
-                routeLinesRef.current.push(startMarker as unknown as L.Polyline);
-
-                // نقطة النهاية (الموقع الحالي)
-                const endPoint = gpsPoints[gpsPoints.length - 1];
-                const endMarker = L.circleMarker(endPoint, {
-                  radius: 8,
-                  fillColor: '#EA4335',
-                  color: 'white',
-                  weight: 3,
-                  fillOpacity: 1,
-                }).addTo(map).bindTooltip('الموقع الحالي', { 
-                  direction: 'top', 
-                  className: 'route-tooltip',
-                  permanent: false,
-                });
-                routeLinesRef.current.push(endMarker as unknown as L.Polyline);
-
-                // نقاط GPS المسجلة على طول المسار
-                gpsPoints.forEach((point, i) => {
-                  if (i === 0 || i === gpsPoints.length - 1) return; // تخطي البداية والنهاية
-                  const dot = L.circleMarker(point, {
-                    radius: 3,
-                    fillColor: '#0f9d58',
-                    color: 'white',
-                    weight: 1.5,
-                    fillOpacity: 0.6,
-                  }).addTo(map);
-                  routeLinesRef.current.push(dot as unknown as L.Polyline);
-                });
-
-              } else {
-                // fallback: رسم GPS مباشرة إذا فشلت المطابقة
-                const layers = drawDirectGPSPath(map, gpsPoints);
-                layers.forEach(l => routeLinesRef.current.push(l as unknown as L.Polyline));
-              }
-            } catch {
-              // fallback: رسم GPS مباشرة
-              const layers = drawDirectGPSPath(map, gpsPoints);
-              layers.forEach(l => routeLinesRef.current.push(l as unknown as L.Polyline));
-            }
-          })
-          .catch(() => {});
-      }
-    }
 
     // تحديث أو إضافة العلامات مع حساب الاتجاه من نقاط GPS المتتالية
     locations.forEach((loc) => {
@@ -588,25 +483,117 @@ export default function MapTracker({
 
     isFirstRenderRef.current = false;
 
-    // تحريك الخريطة للباص المحدد
-    if (selectedBus) {
+    // تحريك الخريطة للباص المحدد — فقط عند تغيير الاختيار (ليس كل تحديث)
+    const busJustSelected = selectedBus && selectedBus !== prevSelectedBusRef.current;
+    prevSelectedBusRef.current = selectedBus;
+
+    if (busJustSelected) {
       const selectedLoc = locations.find((l) => l.busId === selectedBus);
       if (selectedLoc) {
+        userInteractedRef.current = false;
         map.flyTo([selectedLoc.latitude, selectedLoc.longitude], 15, {
-          duration: 1,
+          duration: 0.8,
         });
         markersRef.current.get(selectedBus)?.openPopup();
       }
-    } else if (locations.length > 0) {
+    } else if (!userInteractedRef.current && !selectedBus && locations.length > 0) {
+      // fitBounds فقط إذا المستخدم لم يتفاعل مع الخريطة بعد
       const validLocations = locations.filter(l => l.hasLocation !== false);
       if (validLocations.length > 0) {
         const bounds = L.latLngBounds(
           validLocations.map((l) => [l.latitude, l.longitude] as [number, number])
         );
-        map.fitBounds(bounds, { padding: [80, 80], maxZoom: 14 });
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
+        // بعد أول fitBounds نعتبرها تفاعل لعدم التكرار
+        userInteractedRef.current = true;
       }
     }
   }, [locations, selectedBus, onSelectBus]);
+
+  // جلب مسار الباص المحدد — فقط عند تغيير الاختيار (ليس كل تحديث)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selectedBus) return;
+
+    const selectedLoc = locations.find(l => l.busId === selectedBus);
+    if (!selectedLoc || !selectedLoc.isOnline) return;
+
+    const controller = new AbortController();
+
+    fetch(`/Performance/api/tracking?busId=${selectedBus}`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : [])
+      .then(async (history: { latitude: number; longitude: number; timestamp: string; speed?: number }[]) => {
+        if (history.length < 2) return;
+        
+        const sorted = [...history].reverse();
+        const gpsPoints = sorted.map(h => [h.latitude, h.longitude] as [number, number]);
+        
+        const coords = sorted.map(h => `${h.longitude},${h.latitude}`).join(';');
+        const timestamps = sorted.map(h => Math.floor(new Date(h.timestamp).getTime() / 1000)).join(';');
+        const radiuses = sorted.map(() => '25').join(';');
+        
+        try {
+          const matchRes = await fetch(
+            `https://router.project-osrm.org/match/v1/driving/${coords}?overview=full&geometries=geojson&timestamps=${timestamps}&radiuses=${radiuses}`,
+            { signal: controller.signal }
+          );
+          const matchData = await matchRes.json();
+          
+          if (matchData?.matchings?.[0]?.geometry?.coordinates) {
+            for (const matching of matchData.matchings) {
+              const roadPoints = matching.geometry.coordinates.map(
+                (c: [number, number]) => [c[1], c[0]] as [number, number]
+              );
+              
+              const shadowRoute = L.polyline(roadPoints, {
+                color: '#000', weight: 7, opacity: 0.05, smoothFactor: 1,
+              }).addTo(map);
+              routeLinesRef.current.push(shadowRoute);
+
+              const busRoute = L.polyline(roadPoints, {
+                color: '#0f9d58', weight: 4, opacity: 0.7,
+                smoothFactor: 1, lineCap: 'round', lineJoin: 'round',
+              }).addTo(map);
+              routeLinesRef.current.push(busRoute);
+
+              const animatedLine = L.polyline(roadPoints, {
+                color: '#34A853', weight: 2, opacity: 0.75,
+                dashArray: '5, 12', smoothFactor: 1,
+              }).addTo(map);
+              routeLinesRef.current.push(animatedLine);
+            }
+
+            const startMarker = L.circleMarker(gpsPoints[0], {
+              radius: 6, fillColor: '#4CAF50', color: 'white',
+              weight: 2, fillOpacity: 1,
+            }).addTo(map).bindTooltip('بداية المسار', { direction: 'top' });
+            routeLinesRef.current.push(startMarker as unknown as L.Polyline);
+
+            const endMarker = L.circleMarker(gpsPoints[gpsPoints.length - 1], {
+              radius: 6, fillColor: '#EA4335', color: 'white',
+              weight: 2, fillOpacity: 1,
+            }).addTo(map).bindTooltip('الموقع الحالي', { direction: 'top' });
+            routeLinesRef.current.push(endMarker as unknown as L.Polyline);
+          } else {
+            const layers = drawDirectGPSPath(map, gpsPoints);
+            layers.forEach(l => routeLinesRef.current.push(l as unknown as L.Polyline));
+          }
+        } catch {
+          if (!controller.signal.aborted) {
+            const layers = drawDirectGPSPath(map, gpsPoints);
+            layers.forEach(l => routeLinesRef.current.push(l as unknown as L.Polyline));
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      controller.abort();
+      routeLinesRef.current.forEach(line => line.remove());
+      routeLinesRef.current = [];
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBus]);
 
   return (
     <div
