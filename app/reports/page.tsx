@@ -89,30 +89,35 @@ const STATUS_COLORS: Record<string, string> = {
 export default function ReportsPage() {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [dateRange, setDateRange] = useState({
     from: new Date(new Date().setDate(1)).toISOString().split("T")[0],
     to: new Date().toISOString().split("T")[0],
   });
 
-  const fetchStatistics = useCallback(async () => {
-    setLoading(true);
+  const fetchStatistics = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(
-        `/Performance/api/statistics?date=${dateRange.to}`
+        `/Performance/api/statistics?from=${dateRange.from}&to=${dateRange.to}`
       );
       if (res.ok) {
         const data = await res.json();
         setStatistics(data);
+        setLastUpdated(new Date());
       }
     } catch (error) {
       console.error("Failed to fetch statistics:", error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, [dateRange.to]);
+  }, [dateRange.from, dateRange.to]);
 
   useEffect(() => {
     fetchStatistics();
+    // تحديث تلقائي كل 30 ثانية
+    const interval = setInterval(() => fetchStatistics(true), 30000);
+    return () => clearInterval(interval);
   }, [fetchStatistics]);
 
   // تصدير التقرير كـ CSV
@@ -225,10 +230,18 @@ export default function ReportsPage() {
                 className="px-3 py-1.5 text-sm bg-transparent border-0 focus:outline-none"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={fetchStatistics} className="gap-2">
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              تحديث
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button variant="outline" size="sm" onClick={() => fetchStatistics(false)} className="gap-2">
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                تحديث
+              </Button>
+              {lastUpdated && (
+                <span className="text-xs text-slate-400 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse inline-block" />
+                  آخر تحديث: {lastUpdated.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                </span>
+              )}
+            </div>
             <Button onClick={exportCSV} size="sm" className="gap-2 bg-green-600 hover:bg-green-700">
               <Download className="w-4 h-4" />
               تصدير CSV

@@ -5,14 +5,21 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const date = searchParams.get("date");
+    const fromParam = searchParams.get("from");
+    const toParam   = searchParams.get("to");
+    const dateParam = searchParams.get("date"); // backward compat
 
-    // التاريخ المستخدم للتصفية
-    const targetDate = date || new Date().toISOString().split("T")[0];
-    const startDate = new Date(targetDate);
+    // دعم نطاق تاريخ كامل
+    const todayStr = new Date().toISOString().split("T")[0];
+    const fromStr  = fromParam || dateParam || todayStr;
+    const toStr    = toParam   || dateParam || todayStr;
+
+    const startDate = new Date(fromStr);
     startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(targetDate);
+    const endDate = new Date(toStr);
     endDate.setHours(23, 59, 59, 999);
+
+    const targetDate = toStr; // للـ backward compat
 
     // جلب جميع البيانات بطريقة محسّنة
     const [
@@ -222,6 +229,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       date: targetDate,
+      from: fromStr,
+      to: toStr,
       totals: {
         totalTrips,
         totalStudents,
