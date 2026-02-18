@@ -49,10 +49,11 @@ export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [trackingNotifications, setTrackingNotifications] = useState<TrackingNotification[]>([]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     try {
       const statsRes = await fetch(
@@ -68,6 +69,7 @@ export default function DashboardPage() {
       if (!tripsRes.ok) throw new Error("فشل جلب الرحلات");
       const tripsData = await tripsRes.json();
       setTrips(Array.isArray(tripsData) ? tripsData : []);
+      setLastUpdated(new Date());
 
       try {
         const notifRes = await fetch("/Performance/api/notifications?limit=30");
@@ -93,12 +95,15 @@ export default function DashboardPage() {
       console.error("Error fetching data:", error);
       setError("تعذر تحميل البيانات، حاول مرة أخرى لاحقاً");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [selectedDate, filterStatus]);
 
   useEffect(() => {
     fetchData();
+    // تحديث تلقائي كل 30 ثانية
+    const interval = setInterval(() => fetchData(true), 30000);
+    return () => clearInterval(interval);
   }, [fetchData]);
 
   const getStatusBadge = (status: string) => {
@@ -442,19 +447,27 @@ export default function DashboardPage() {
                       {formatDate(new Date(selectedDate))} - {trips.length} رحلة
                     </CardDescription>
                   </div>
-                  <Button
-                    onClick={fetchData}
-                    variant="outline"
-                    size="sm"
-                    disabled={loading}
-                  >
-                    <RefreshCcw
-                      className={`w-4 h-4 ml-2 ${
-                        loading ? "animate-spin" : ""
-                      }`}
-                    />
-                    تحديث
-                  </Button>
+                  <div className="flex flex-col items-end gap-1">
+                    <Button
+                      onClick={() => fetchData(false)}
+                      variant="outline"
+                      size="sm"
+                      disabled={loading}
+                    >
+                      <RefreshCcw
+                        className={`w-4 h-4 ml-2 ${
+                          loading ? "animate-spin" : ""
+                        }`}
+                      />
+                      تحديث
+                    </Button>
+                    {lastUpdated && (
+                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse inline-block" />
+                        آخر تحديث: {lastUpdated.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
