@@ -163,6 +163,10 @@ function createIcon(loc: BusLocation, isSelected: boolean, heading: number): L.D
   const { h: sz, w: bw } = getIconSize(savedZoom, isSelected);
   const pad = 7; // مساحة للظل والـ ring
 
+  // يجب تعريف ringW/ringH أولاً قبل استخدامها في حساب الـ glow
+  const ringW = bw + pad * 2;
+  const ringH = sz + pad * 2;
+
   // ألوان: نشط = أصفر داكن محترف، غير نشط = رمادي
   const color = loc.isOnline ? "#E8960A" : "#9E9E9E";
   const alpha = loc.isOnline ? "1" : "0.55";
@@ -181,10 +185,6 @@ function createIcon(loc: BusLocation, isSelected: boolean, heading: number): L.D
   const glow = loc.isOnline
     ? `<div class="bm-glow" style="width:${glowW}px;height:${glowH}px;left:${glowLeft}px;top:${glowTop}px;"></div>`
     : "";
-
-  // ring عند التحديد — يلتف حول شكل الباص
-  const ringW = bw + pad * 2;
-  const ringH = sz + pad * 2;
   const ring = isSelected
     ? `<div class="bm-ring" style="width:${ringW}px;height:${ringH}px;top:0;left:0;"></div>`
     : "";
