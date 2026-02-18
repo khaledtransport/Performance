@@ -1,5 +1,7 @@
 # تعليمات GitHub Copilot — مشروع النقل الجامعي
 
+> **آخر تحديث:** 18 فبراير 2026 | آخر commit: `100f415` (PWA SSR fix + Uber-style bus icon)
+
 ## معلومات المشروع الأساسية
 
 - **الإطار:** Next.js 15.5.12 (App Router) مع TypeScript
@@ -8,8 +10,9 @@
 - **المصادقة:** JWT في cookies — `lib/auth.ts` — (`getCurrentUser`, `hashPassword`, `verifyPassword`)
 - **JWT library:** `jose` (ليس `jsonwebtoken`) | **bcrypt:** `bcryptjs` (ليس `bcrypt`)
 - **التشغيل المحلي:** `localhost:3000` (افتراضي — قابل للتغيير بـ `.env`)
-- **النشر:** Vercel — فرع `main` — مستودع `khaledtransport/Performance`
+- **النشر:** Vercel — فرع `main` — مستودع `khaledtransport/alkhaledlog-platform`
 - **TypeScript:** أخطاؤه تُوقف البناء | **ESLint:** مُتجاهَل أثناء البناء
+- **Tailwind:** v4 — انتبه لتغيرات class names (راجع جدول الأسفل)
 
 ---
 
@@ -97,11 +100,13 @@ BusLocation     { id, busId, latitude, longitude, speed?, heading?, timestamp }
 TrackingSession { id, busId, routeId?, startedAt, lastPointAt, endedAt?, status=ACTIVE }
 TrackingPoint   { id, sessionId, busId, latitude, longitude, speed?, heading?, timestamp, source }
 
-enum TripStatus        { PENDING DEPARTED ARRIVED DELAYED CANCELLED }
-enum TripDirection     { GO RETURN }
-enum UserRole          { ADMIN MANAGER DELEGATE DRIVER VIEWER }
-enum NotificationType  { INFO SUCCESS WARNING ERROR TRIP_UPDATE SYSTEM URGENT SCHEDULE }
-enum TrackingSource    { DRIVER_APP GPS_FALLBACK IMPORTED }
+enum TripStatus:            PENDING | DEPARTED | ARRIVED | DELAYED | CANCELLED
+enum TripDirection:         GO | RETURN
+enum UserRole:              ADMIN | MANAGER | DELEGATE | DRIVER | VIEWER
+enum NotificationType:      INFO | SUCCESS | WARNING | ERROR | TRIP_UPDATE | SYSTEM | URGENT | SCHEDULE
+enum NotificationPriority:  LOW | NORMAL | HIGH | CRITICAL
+enum TrackingSessionStatus: ACTIVE | PAUSED | ENDED
+enum TrackingSource:        DRIVER_APP | GPS_FALLBACK | IMPORTED
 \`\`\`
 
 ---
