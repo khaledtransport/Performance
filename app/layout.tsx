@@ -4,10 +4,8 @@ import { Cairo } from "next/font/google";
 import { NavigationBar } from "@/components/navigation-bar";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { AuthProvider } from "@/hooks/use-auth";
-import { PWAInstallPrompt } from "@/components/pwa-install";
-import { PWAPermissionsPrompt } from "@/components/pwa-permissions";
-import { PushRegistration } from "@/components/push-registration";
 import { Toaster } from "@/components/ui/toaster";
+import { PWAClientWrapper } from "@/components/pwa-client-wrapper";
 
 const cairo = Cairo({
   subsets: ["arabic"],
@@ -57,9 +55,7 @@ export default function RootLayout({
           <div className="bg-background text-foreground min-h-[calc(100vh-120px)]">
             {children}
           </div>
-          <PWAInstallPrompt />
-          <PWAPermissionsPrompt />
-          <PushRegistration />
+          <PWAClientWrapper />
           <Toaster />
         </AuthProvider>
       </body>

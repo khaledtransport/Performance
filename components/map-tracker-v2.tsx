@@ -121,11 +121,11 @@ function injectCSS() {
 
 function getIconSize(zoom: number, isSelected: boolean): { h: number; w: number } {
   // الارتفاع الأساسي حسب مستوى الزوم
-  const h = zoom <= 10 ? 22 : zoom <= 12 ? 28 : zoom <= 14 ? 34 : zoom <= 16 ? 40 : 46;
-  // عند التحديد: +6px
-  const fh = isSelected ? h + 6 : h;
-  // نسبة العرض إلى الارتفاع: 24:36 = 0.667 (باص أطول من عرضه)
-  return { h: fh, w: Math.round(fh * 0.667) };
+  const h = zoom <= 10 ? 30 : zoom <= 12 ? 40 : zoom <= 14 ? 52 : zoom <= 16 ? 64 : 76;
+  // عند التحديد: +10px
+  const fh = isSelected ? h + 10 : h;
+  // نسبة العرض إلى الارتفاع: 28:56 = 0.5 (باص واقعي من الأعلى)
+  return { h: fh, w: Math.round(fh * 0.5) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,22 +134,67 @@ function getIconSize(zoom: number, isSelected: boolean): { h: number; w: number 
 // ─────────────────────────────────────────────────────────────────────────────
 
 function busSVG(color: string, alpha: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" style="display:block;width:100%;height:100%;opacity:${alpha};">
-  <!-- الجسم الرئيسي -->
-  <rect x="3" y="1.5" width="18" height="31" rx="5" fill="${color}"/>
-  <!-- زجاج أمامي (أعلى = أمام السفر) — أبيض شفاف = واضح فوراً -->
-  <rect x="5" y="3" width="14" height="8" rx="3.5" fill="rgba(255,255,255,0.38)"/>
-  <!-- وميض أمامي (خط لامع يميز الجبهة) -->
-  <rect x="5" y="3" width="14" height="1.5" rx="0.75" fill="rgba(255,255,255,0.55)"/>
-  <!-- وسط الجسم — إضاءة خفيفة -->
-  <rect x="5" y="14" width="14" height="10" rx="2" fill="rgba(255,255,255,0.11)"/>
-  <!-- مؤخرة — داكنة قليلاً لتمييز الاتجاه -->
-  <rect x="5" y="27.5" width="14" height="3.5" rx="1.5" fill="rgba(0,0,0,0.22)"/>
-  <!-- عجلات — 4 مستطيلات في الزوايا (لا تفاصيل صغيرة) -->
-  <rect x="0"  y="6"  width="4" height="7" rx="2" fill="rgba(0,0,0,0.48)"/>
-  <rect x="20" y="6"  width="4" height="7" rx="2" fill="rgba(0,0,0,0.48)"/>
-  <rect x="0"  y="22" width="4" height="7" rx="2" fill="rgba(0,0,0,0.48)"/>
-  <rect x="20" y="22" width="4" height="7" rx="2" fill="rgba(0,0,0,0.48)"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 56" style="display:block;width:100%;height:100%;opacity:${alpha};">
+  <!-- ظل داخلي تحت الجسم -->
+  <ellipse cx="14" cy="52" rx="9" ry="2.5" fill="rgba(0,0,0,0.18)"/>
+
+  <!-- الجسم الرئيسي — مقدمة مدورة أكثر (أمام)، مؤخرة مستقيمة نسبياً -->
+  <path d="M5,10 Q5,2 14,2 Q23,2 23,10 L23,46 Q23,54 14,54 Q5,54 5,46 Z" fill="${color}"/>
+
+  <!-- إبراز الجانبين — ظل جانبي يعطي عمق للجسم -->
+  <path d="M5,12 L5,44 Q5,50 8,52 L5,52 Q5,54 14,54 Q5,54 5,46 Z" fill="rgba(0,0,0,0.08)"/>
+  <path d="M23,12 L23,44 Q23,50 20,52 L23,52 Q23,54 14,54 Q23,54 23,46 Z" fill="rgba(0,0,0,0.06)"/>
+
+  <!-- الزجاج الأمامي — حبة واحدة واضحة (أعلى = أمام) -->
+  <path d="M7.5,4.5 Q14,3.5 20.5,4.5 L20.5,13.5 Q14,12.5 7.5,13.5 Z" fill="rgba(255,255,255,0.42)"/>
+  <!-- وميض لامع على الزجاج الأمامي -->
+  <line x1="9" y1="5.5" x2="19" y2="5.5" stroke="rgba(255,255,255,0.65)" stroke-width="1.2" stroke-linecap="round"/>
+
+  <!-- شريط فاصل بين الكابينة والجسم -->
+  <rect x="5.5" y="15" width="17" height="1.2" rx="0.6" fill="rgba(0,0,0,0.20)"/>
+
+  <!-- خط وسط السقف (حافة السطح) -->
+  <rect x="13.2" y="17" width="1.6" height="22" rx="0.8" fill="rgba(0,0,0,0.10)"/>
+
+  <!-- نوافذ — العمود الأيسر -->
+  <rect x="6" y="18" width="5" height="4" rx="1.2" fill="rgba(255,255,255,0.28)"/>
+  <rect x="6" y="24.5" width="5" height="4" rx="1.2" fill="rgba(255,255,255,0.28)"/>
+  <rect x="6" y="31" width="5" height="4" rx="1.2" fill="rgba(255,255,255,0.28)"/>
+  <rect x="6" y="37.5" width="5" height="4" rx="1.2" fill="rgba(255,255,255,0.28)"/>
+
+  <!-- نوافذ — العمود الأيمن -->
+  <rect x="17" y="18" width="5" height="4" rx="1.2" fill="rgba(255,255,255,0.28)"/>
+  <rect x="17" y="24.5" width="5" height="4" rx="1.2" fill="rgba(255,255,255,0.28)"/>
+  <rect x="17" y="31" width="5" height="4" rx="1.2" fill="rgba(255,255,255,0.28)"/>
+  <rect x="17" y="37.5" width="5" height="4" rx="1.2" fill="rgba(255,255,255,0.28)"/>
+
+  <!-- باب الركاب (الجانب الأيمن) -->
+  <rect x="22.5" y="28" width="1.5" height="8" rx="0.75" fill="rgba(0,0,0,0.18)"/>
+
+  <!-- لوحة المؤخرة الداكنة -->
+  <path d="M7,47 L21,47 L21,50 Q21,53.5 14,53.5 Q7,53.5 7,50 Z" fill="rgba(0,0,0,0.22)"/>
+
+  <!-- المصابيح الأمامية -->
+  <rect x="5.5" y="3.5" width="4.5" height="2.2" rx="1.1" fill="rgba(255,252,180,0.92)"/>
+  <rect x="18" y="3.5" width="4.5" height="2.2" rx="1.1" fill="rgba(255,252,180,0.92)"/>
+
+  <!-- المصابيح الخلفية -->
+  <rect x="5.5" y="50" width="4" height="2" rx="1" fill="rgba(255,60,60,0.70)"/>
+  <rect x="18.5" y="50" width="4" height="2" rx="1" fill="rgba(255,60,60,0.70)"/>
+
+  <!-- العجلات الأمامية -->
+  <rect x="1.5" y="8" width="4" height="9" rx="2" fill="rgba(30,30,30,0.75)"/>
+  <rect x="22.5" y="8" width="4" height="9" rx="2" fill="rgba(30,30,30,0.75)"/>
+  <!-- بلاتين العجل الأمامي -->
+  <rect x="2.5" y="10.5" width="2" height="4" rx="1" fill="rgba(130,130,130,0.5)"/>
+  <rect x="23.5" y="10.5" width="2" height="4" rx="1" fill="rgba(130,130,130,0.5)"/>
+
+  <!-- العجلات الخلفية -->
+  <rect x="1.5" y="36" width="4" height="9" rx="2" fill="rgba(30,30,30,0.75)"/>
+  <rect x="22.5" y="36" width="4" height="9" rx="2" fill="rgba(30,30,30,0.75)"/>
+  <!-- بلاتين العجل الخلفي -->
+  <rect x="2.5" y="38.5" width="2" height="4" rx="1" fill="rgba(130,130,130,0.5)"/>
+  <rect x="23.5" y="38.5" width="2" height="4" rx="1" fill="rgba(130,130,130,0.5)"/>
 </svg>`;
 }
 
