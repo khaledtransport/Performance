@@ -58,9 +58,11 @@ export function MobileTripCard({ trip, getStatusBadge }: MobileTripCardProps) {
               <span>الحي</span>
             </div>
             <p className="text-slate-900 font-medium truncate">
-              {trip.route?.districts?.length > 0
-                ? trip.route.districts.map((d: any) => d.name).join("، ")
-                : trip.route?.district?.name || "-"}
+              {(trip.route?.bus?.districts?.length ?? 0) > 0
+                ? (trip.route?.bus?.districts ?? [])
+                    .map((d: { name: string }) => d.name)
+                    .join("، ")
+                : trip.district?.name || "-"}
             </p>
           </div>
 

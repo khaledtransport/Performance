@@ -109,8 +109,8 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                         <Label htmlFor="route" className="text-slate-700">
                             اختر الرحلة الأساسية *
                         </Label>
-                        <Select id="route" value={selectedRoute} onValueChange={setSelectedRoute} required>
-                            <SelectTrigger className="bg-white border-slate-200 text-slate-900">
+                        <Select value={selectedRoute} onValueChange={setSelectedRoute}>
+                            <SelectTrigger id="route" className="bg-white border-slate-200 text-slate-900">
                                 <SelectValue placeholder="اختر رحلة..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -271,7 +271,7 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                     {/* Submit Button */}
                     <Button
                         type="submit"
-                        className="w-full bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-6 text-lg shadow-lg hover:shadow-blue-900/20 transition-all"
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-6 text-lg shadow-lg hover:shadow-blue-900/20 transition-all"
                         disabled={loading || !selectedRoute || !tripTime}
                     >
                         {loading ? (

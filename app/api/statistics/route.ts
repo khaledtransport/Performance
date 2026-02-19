@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+type StatusCountRow = {
+  status: string | null;
+  _count: number | { _all: number };
+};
+
 // GET: جلب إحصائيات النظام (محسّنة بـ groupBy و aggregate)
 export async function GET(request: NextRequest) {
   try {
@@ -87,15 +92,18 @@ export async function GET(request: NextRequest) {
     } as Record<string, number>;
 
     // معالجة إحصائيات الحالات
-    tripStatusCounts.forEach((s: any) => {
+    const getCountValue = (count: StatusCountRow["_count"]) =>
+      typeof count === "number" ? count : (count._all ?? 0);
+
+    tripStatusCounts.forEach((s: StatusCountRow) => {
       if (s.status && statusCounts.hasOwnProperty(s.status)) {
-        statusCounts[s.status] += s._count;
+        statusCounts[s.status] += getCountValue(s._count);
       }
     });
 
-    routeTripStatusCounts.forEach((s: any) => {
+    routeTripStatusCounts.forEach((s: StatusCountRow) => {
       if (s.status && statusCounts.hasOwnProperty(s.status)) {
-        statusCounts[s.status] += s._count;
+        statusCounts[s.status] += getCountValue(s._count);
       }
     });
 
@@ -114,10 +122,10 @@ export async function GET(request: NextRequest) {
     > = {};
 
     // جلب تفاصيل Route فقط للرحلات الموجودة
-    const routeIds = new Set([
+    const routeIds = new Set<string>([
       ...trips.map((t) => t.routeId).filter(Boolean),
       ...routeTrips.map((rt) => rt.routeId).filter(Boolean),
-    ]);
+    ] as string[]);
 
     if (routeIds.size > 0) {
       const routes = await prisma.route.findMany({
@@ -133,6 +141,7 @@ export async function GET(request: NextRequest) {
 
       // معالجة Trips
       for (const t of trips) {
+        if (!t.routeId) continue;
         const route = routeMap.get(t.routeId);
         if (!route) continue;
 
@@ -167,6 +176,7 @@ export async function GET(request: NextRequest) {
 
       // معالجة RouteTrips
       for (const rt of routeTrips) {
+        if (!rt.routeId) continue;
         const route = routeMap.get(rt.routeId);
         if (!route) continue;
 

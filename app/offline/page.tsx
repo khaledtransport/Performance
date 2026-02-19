@@ -3,7 +3,7 @@
 export default function OfflinePage() {
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-blue-950 p-4"
+      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-blue-950 p-4"
       dir="rtl"
     >
       <div className="text-center max-w-md">

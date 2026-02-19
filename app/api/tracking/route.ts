@@ -445,7 +445,7 @@ export async function POST(request: Request) {
         orderBy: { lastPointAt: "desc" },
       });
 
-      let session = activeSessions[0] ?? null;
+      let session: (typeof activeSessions)[number] | null = activeSessions[0] ?? null;
 
       if (activeSessions.length > 1) {
         const duplicateSessionIds = activeSessions.slice(1).map((s) => s.id);

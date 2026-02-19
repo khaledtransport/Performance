@@ -136,7 +136,7 @@ export default function HomePage() {
               <div>
                 <h2 className="text-5xl md:text-6xl font-bold text-slate-900 mb-4 leading-tight">
                   نظام متكامل
-                  <span className="bg-linear-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                     {" "}
                     لإدارة النقل
                   </span>
@@ -149,14 +149,14 @@ export default function HomePage() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/dashboard/calendar" className="flex-1">
-                  <Button className="w-full bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-lg py-6 rounded-lg gap-2 shadow-xl hover:shadow-2xl transition-all duration-300">
+                  <Button className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-lg py-6 rounded-lg gap-2 shadow-xl hover:shadow-2xl transition-all duration-300">
                     <Zap className="w-5 h-5" />
                     لوحة التحكم
                     <ArrowRight className="w-5 h-5" />
                   </Button>
                 </Link>
                 <Link href="/tracking" className="flex-1">
-                  <Button className="w-full bg-linear-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white text-lg py-6 rounded-lg gap-2 shadow-xl hover:shadow-2xl transition-all duration-300">
+                  <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white text-lg py-6 rounded-lg gap-2 shadow-xl hover:shadow-2xl transition-all duration-300">
                     <Navigation className="w-5 h-5" />
                     تتبع مباشر
                   </Button>
@@ -227,12 +227,12 @@ export default function HomePage() {
               <Link key={index} href={item.href}>
                 <Card className="group bg-white border-slate-200 hover:border-blue-200 hover:shadow-lg transition-all duration-300 cursor-pointer h-full overflow-hidden relative">
                   <div
-                    className={`absolute inset-0 bg-linear-to-br ${item.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}
+                    className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}
                   ></div>
 
                   <CardHeader>
                     <div
-                      className={`p-3 bg-linear-to-br ${item.color} rounded-lg w-fit mb-4 group-hover:scale-110 transition-transform duration-300 shadow-md`}
+                      className={`p-3 bg-gradient-to-br ${item.color} rounded-lg w-fit mb-4 group-hover:scale-110 transition-transform duration-300 shadow-md`}
                     >
                       <span className="text-white">{item.icon}</span>
                     </div>
@@ -276,7 +276,7 @@ export default function HomePage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/dashboard/calendar">
-                  <Button className="bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                  <Button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
                     فتح لوحة التحكم
                   </Button>
                 </Link>

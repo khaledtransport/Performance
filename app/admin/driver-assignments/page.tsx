@@ -185,7 +185,7 @@ export default function DriverAssignmentsPage() {
   return (
     <>
       <div
-      className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900"
+      className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900"
       dir="rtl"
     >
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
@@ -193,7 +193,7 @@ export default function DriverAssignmentsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-              <div className="p-2 bg-linear-to-br from-indigo-500 to-indigo-700 rounded-xl">
+              <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl">
                 <Users className="w-6 h-6 text-white" />
               </div>
               ربط السائقين بالباصات
@@ -210,13 +210,13 @@ export default function DriverAssignmentsPage() {
 
         {/* ملخص */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Card className="bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-0">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-0">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{drivers.length}</p>
               <p className="text-xs text-blue-500">إجمالي السائقين</p>
             </CardContent>
           </Card>
-          <Card className="bg-linear-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-0">
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-0">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                 {drivers.filter((d) => d.linkedUser).length}
@@ -224,7 +224,7 @@ export default function DriverAssignmentsPage() {
               <p className="text-xs text-green-500">مربوط بحساب</p>
             </CardContent>
           </Card>
-          <Card className="bg-linear-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-0">
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-0">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
                 {drivers.filter((d) => d.assignedBus).length}
@@ -232,7 +232,7 @@ export default function DriverAssignmentsPage() {
               <p className="text-xs text-purple-500">لديه باص</p>
             </CardContent>
           </Card>
-          <Card className="bg-linear-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border-0">
+          <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border-0">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
                 {unlinkedUsers.length}

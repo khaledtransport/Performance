@@ -375,13 +375,13 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
                             <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                             <p
                               className="text-[10px] text-slate-500 truncate"
-                              title={trip.route?.districts
-                                ?.map((d: any) => d.name)
+                              title={(trip.route?.districts ?? [])
+                                .map((d: { name: string }) => d.name)
                                 .join(", ")}
                             >
-                              {trip.route?.districts?.length > 0
-                                ? trip.route.districts
-                                    .map((d: any) => d.name)
+                              {(trip.route?.districts?.length ?? 0) > 0
+                                ? (trip.route?.districts ?? [])
+                                    .map((d: { name: string }) => d.name)
                                     .join(", ")
                                 : "-"}
                             </p>
@@ -577,13 +577,13 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
                                     </p>
                                     <p
                                       className="text-xs text-slate-500 truncate"
-                                      title={trip.route?.districts
-                                        ?.map((d: any) => d.name)
+                                      title={(trip.route?.districts ?? [])
+                                        .map((d: { name: string }) => d.name)
                                         .join(", ")}
                                     >
-                                      {trip.route?.districts?.length > 0
-                                        ? trip.route.districts
-                                            .map((d: any) => d.name)
+                                      {(trip.route?.districts?.length ?? 0) > 0
+                                        ? (trip.route?.districts ?? [])
+                                            .map((d: { name: string }) => d.name)
                                             .join(", ")
                                         : "-"}
                                     </p>
@@ -685,13 +685,13 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
                                     </p>
                                     <p
                                       className="text-xs text-slate-500 truncate"
-                                      title={trip.route?.districts
-                                        ?.map((d: any) => d.name)
+                                      title={(trip.route?.districts ?? [])
+                                        .map((d: { name: string }) => d.name)
                                         .join(", ")}
                                     >
-                                      {trip.route?.districts?.length > 0
-                                        ? trip.route.districts
-                                            .map((d: any) => d.name)
+                                      {(trip.route?.districts?.length ?? 0) > 0
+                                        ? (trip.route?.districts ?? [])
+                                            .map((d: { name: string }) => d.name)
                                             .join(", ")
                                         : "-"}
                                     </p>

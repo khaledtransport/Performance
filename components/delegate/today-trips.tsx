@@ -133,9 +133,9 @@ export function TodayTrips({ trips, loading, onRefresh }: TodayTripsProps) {
                         {trip.route?.university?.name ?? "-"}
                       </td>
                       <td className="py-3 pr-2 text-slate-700">
-                        {trip.route?.districts?.length > 0
-                          ? trip.route.districts
-                              .map((d: any) => d.name)
+                        {(trip.route?.districts?.length ?? 0) > 0
+                          ? (trip.route?.districts ?? [])
+                              .map((d: { name: string }) => d.name)
                               .join("، ")
                           : trip.route?.district?.name ?? "-"}
                       </td>

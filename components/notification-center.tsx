@@ -269,7 +269,7 @@ export function NotificationCenter() {
   const soundRef = useRef<NotificationSoundManager | null>(null);
   const lastIdsRef = useRef<Set<string>>(new Set());
   const isFirstLoadRef = useRef(true);
-  const bannerTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     soundRef.current = new NotificationSoundManager();
@@ -506,7 +506,7 @@ export function NotificationCenter() {
             */}
             <div className="fixed inset-x-3 top-14 bottom-auto max-h-[80vh] md:absolute md:inset-auto md:right-0 md:left-auto md:top-full md:mt-2 md:w-100 md:max-h-130 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-linear-to-l from-blue-50 to-white dark:from-blue-950/30 dark:to-slate-900 shrink-0">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-l from-blue-50 to-white dark:from-blue-950/30 dark:to-slate-900 shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
                     <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
