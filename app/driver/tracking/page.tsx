@@ -108,6 +108,9 @@ export default function DriverTrackingPage() {
   const selectedBusIdRef = useRef<string>("");
   const gpsRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const autoResumeAttemptedRef = useRef(false);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const lastSentAtRef = useRef(0);
+  const lastSentPosRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const getPendingStopKey = useCallback((busId: string) => `tracking_pending_stop:${busId}`, []);
   const TRACKING_ACTIVE_BUS_KEY = "tracking_active_bus_id";
@@ -353,6 +356,28 @@ export default function DriverTrackingPage() {
     [getPendingStopKey]
   );
 
+  const acquireWakeLock = useCallback(async () => {
+    try {
+      if (!navigator.wakeLock || wakeLockRef.current) return;
+      wakeLockRef.current = await navigator.wakeLock.request("screen");
+      wakeLockRef.current?.addEventListener?.("release", () => {
+        wakeLockRef.current = null;
+      });
+    } catch {
+      // بعض الأجهزة/المتصفحات لا تدعم Wake Lock — نكمل بدونها
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(async () => {
+    try {
+      await wakeLockRef.current?.release();
+    } catch {
+      // صامت
+    } finally {
+      wakeLockRef.current = null;
+    }
+  }, []);
+
   // بدء التتبع
   const startTracking = useCallback(() => {
     if (!selectedBusId) {
@@ -398,7 +423,10 @@ export default function DriverTrackingPage() {
     setCalculatedSpeed(null);
     calculatedSpeedRef.current = null;
     prevGpsPositionRef.current = null;
+    lastSentAtRef.current = 0;
+    lastSentPosRef.current = null;
     void setTrackingStatus("start");
+    void acquireWakeLock();
     if (typeof window !== "undefined") {
       localStorage.removeItem(getPendingStopKey(selectedBusId));
       localStorage.setItem(TRACKING_ACTIVE_BUS_KEY, selectedBusId);
@@ -454,6 +482,19 @@ export default function DriverTrackingPage() {
         // حفظ كامل البيانات في المرجع
         const fullPos: FullPosition = { lat, lng, speed: spd, heading: hdg, accuracy: acc };
         lastPositionRef.current = fullPos;
+
+        // إرسال ذكي أسرع لتقليل التأخير/القفز
+        const nowMs = Date.now();
+        const lastSentPos = lastSentPosRef.current;
+        const movedMeters = lastSentPos
+          ? haversineDistance(lastSentPos.lat, lastSentPos.lng, lat, lng)
+          : Number.POSITIVE_INFINITY;
+
+        if (nowMs - lastSentAtRef.current >= 2500 || movedMeters >= 12) {
+          void sendLocation(fullPos);
+          lastSentAtRef.current = nowMs;
+          lastSentPosRef.current = { lat, lng };
+        }
 
         // حفظ أفضل موقع GPS (دقة < 300م) للاستخدام عند سقوط GPS
         if (quality !== "cell-tower" && quality !== "unknown") {
@@ -543,8 +584,10 @@ export default function DriverTrackingPage() {
       const pos = lastPositionRef.current;
       if (pos) {
         sendLocation(pos);
+        lastSentAtRef.current = Date.now();
+        lastSentPosRef.current = { lat: pos.lat, lng: pos.lng };
       }
-    }, 5000);
+    }, 3000);
 
     // إرسال أول موقع بعد 3 ثوانٍ لإعطاء GPS وقت للتثبيت
     firstPositionTimeoutRef.current = setTimeout(() => {
@@ -577,6 +620,8 @@ export default function DriverTrackingPage() {
     bestPositionRef.current = null;
     prevGpsPositionRef.current = null;
     calculatedSpeedRef.current = null;
+    lastSentAtRef.current = 0;
+    lastSentPosRef.current = null;
     setIsTracking(false);
     setGpsQuality("unknown");
     setCalculatedSpeed(null);
@@ -591,12 +636,35 @@ export default function DriverTrackingPage() {
         localStorage.removeItem(getPendingStopKey(selectedBusId));
       }
     });
+    void releaseWakeLock();
 
     toast({
       title: "تم إيقاف التتبع",
       description: `تم إرسال ${sendCount} تحديث للموقع`,
     });
   }, [sendCount, toast, setTrackingStatus, selectedBusId, getPendingStopKey]);
+
+  // عند رجوع التطبيق للواجهة: أعد طلب Wake Lock وأرسل آخر موقع فوراً
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!isTrackingRef.current) return;
+
+      if (document.visibilityState === "visible") {
+        void acquireWakeLock();
+        const pos = lastPositionRef.current;
+        if (pos) {
+          void sendLocation(pos);
+          lastSentAtRef.current = Date.now();
+          lastSentPosRef.current = { lat: pos.lat, lng: pos.lng };
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [acquireWakeLock, sendLocation]);
 
   // التعامل مع فقدان/عودة الإنترنت وإغلاق الصفحة أثناء التتبع
   useEffect(() => {
@@ -692,8 +760,9 @@ export default function DriverTrackingPage() {
       if (firstPositionTimeoutRef.current) {
         clearTimeout(firstPositionTimeoutRef.current);
       }
+      void releaseWakeLock();
     };
-  }, []);
+  }, [releaseWakeLock]);
 
   // كشف نوع الجهاز/المتصفح
   const getBrowserInfo = useCallback(() => {

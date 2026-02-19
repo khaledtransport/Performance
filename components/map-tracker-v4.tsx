@@ -84,7 +84,19 @@ interface BusAnim {
   speed: number | null;
 }
 
-const LERP_SPEED = 0.10; // سرعة التحريك (0..1)
+const LERP_MIN = 0.14;
+const LERP_MAX = 0.32;
+
+function adaptiveLerp(current: [number, number], target: [number, number]) {
+  const dx = target[0] - current[0];
+  const dy = target[1] - current[1];
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const factor = Math.max(LERP_MIN, Math.min(LERP_MAX, 0.12 + dist * 80));
+  return {
+    lng: current[0] + dx * factor,
+    lat: current[1] + dy * factor,
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
@@ -359,10 +371,9 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
         // خصائص الباصات
         const features: Feature[] = [];
         stateRef.current.forEach((s, id) => {
-          // lerp
-          const nlng = s.current[0] + (s.target[0] - s.current[0]) * LERP_SPEED;
-          const nlat = s.current[1] + (s.target[1] - s.current[1]) * LERP_SPEED;
-          s.current = [nlng, nlat];
+          // lerp تكيفي لتقليل التأخير مع الحفاظ على السلاسة
+          const next = adaptiveLerp(s.current, s.target);
+          s.current = [next.lng, next.lat];
 
           const live = (now - s.lastUpdateMs) < 15_000 && s.isOnline;
 
