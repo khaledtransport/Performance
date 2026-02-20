@@ -178,7 +178,7 @@ export function NavigationBar() {
     <>
       {/* Main Navigation Bar */}
       <nav
-        className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm"
+        className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm"
         dir="rtl"
         suppressHydrationWarning
       >
@@ -314,9 +314,9 @@ export function NavigationBar() {
       {mobileMenuOpen && (
         <>
           {/* Backdrop */}
-          <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-30" onClick={() => setMobileMenuOpen(false)} />
+          <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setMobileMenuOpen(false)} />
 
-          <div className="md:hidden fixed top-14 right-0 left-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-xl" dir="rtl">
+          <div className="md:hidden fixed top-14 right-0 left-0 bottom-0 z-50 overflow-y-auto bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-xl" dir="rtl">
             {/* معلومات المستخدم */}
             {user && (
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
@@ -336,7 +336,7 @@ export function NavigationBar() {
               </div>
             )}
 
-            <div className="px-3 py-3 space-y-0.5 max-h-[70vh] overflow-y-auto">
+            <div className="px-3 py-3 space-y-0.5">
               {navigationItems.map((item) => (
                 <div key={item.href}>
                   {item.category === "admin" ? (
