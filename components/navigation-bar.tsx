@@ -130,15 +130,19 @@ export function NavigationBar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, logout } = useAuth();
   const adminRef = useRef<HTMLDivElement>(null);
+  const mobileAdminRef = useRef<HTMLDivElement>(null);
   const userRef  = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
-  // إغلاق القوائم عند الضغط خارجها
+  // إغلاق القوائم عند الضغط خارجها (ديسكتوب + موبايل)
   useEffect(() => {
     const fn = (e: MouseEvent) => {
-      if (adminRef.current && !adminRef.current.contains(e.target as Node)) setShowAdminDropdown(false);
-      if (userRef.current  && !userRef.current.contains(e.target as Node))  setShowUserMenu(false);
+      const target = e.target as Node;
+      const insideAdmin = (adminRef.current && adminRef.current.contains(target)) ||
+                          (mobileAdminRef.current && mobileAdminRef.current.contains(target));
+      if (!insideAdmin) setShowAdminDropdown(false);
+      if (userRef.current && !userRef.current.contains(target)) setShowUserMenu(false);
     };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
@@ -336,7 +340,7 @@ export function NavigationBar() {
               {navigationItems.map((item) => (
                 <div key={item.href}>
                   {item.category === "admin" ? (
-                    <>
+                    <div ref={mobileAdminRef}>
                       <button
                         onClick={() => setShowAdminDropdown((v) => !v)}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
@@ -364,7 +368,7 @@ export function NavigationBar() {
                           ))}
                         </div>
                       )}
-                    </>
+                    </div>
                   ) : (
                     <Link href={item.href}
                       className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer select-none ${
