@@ -145,7 +145,11 @@ export function NavigationBar() {
   }, []);
 
   // إغلاق عند تغيير الصفحة
-  useEffect(() => { setMobileMenuOpen(false); setShowAdminDropdown(false); }, [pathname]);
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setShowAdminDropdown(false);
+    setShowUserMenu(false);
+  }, [pathname]);
 
   // منع التمرير خلف القائمة الجوالة
   useEffect(() => {
@@ -349,7 +353,6 @@ export function NavigationBar() {
                         <div className="mt-0.5 mr-4 pr-3 border-r-2 border-slate-100 dark:border-slate-700 space-y-0.5">
                           {adminItems.map((admin) => (
                             <Link key={admin.href} href={admin.href}
-                              onClick={() => { setMobileMenuOpen(false); setShowAdminDropdown(false); }}
                               className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors cursor-pointer select-none ${
                                 isActive(admin.href)
                                   ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-medium"
@@ -363,7 +366,7 @@ export function NavigationBar() {
                       )}
                     </>
                   ) : (
-                    <Link href={item.href} onClick={() => setMobileMenuOpen(false)}
+                    <Link href={item.href}
                       className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer select-none ${
                         isActive(item.href)
                           ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400"
