@@ -76,27 +76,55 @@ let firstFitDone = false;
 interface BusAnim {
   current: [number, number];
   target: [number, number];
+  prev: [number, number];       // النقطة السابقة (لحساب Hermite)
   bearing: number;
+  targetBearing: number;        // الاتجاه المستهدف (للتنعيم)
   isOnline: boolean;
   lastUpdateMs: number;
+  lastFrameMs: number;          // آخر frame للـ Dead Reckoning
   busNumber: string;
   district: string;
   speed: number | null;
+  arrivalMs: number;            // متى وصل التحديث (لحساب وتيرة الحركة)
 }
 
-const LERP_MIN = 0.14;
-const LERP_MAX = 0.32;
-
-function adaptiveLerp(current: [number, number], target: [number, number]) {
-  const dx = target[0] - current[0];
-  const dy = target[1] - current[1];
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const factor = Math.max(LERP_MIN, Math.min(LERP_MAX, 0.12 + dist * 80));
-  return {
-    lng: current[0] + dx * factor,
-    lat: current[1] + dy * factor,
-  };
+// ─── Hermite Spline Interpolation ─────────────────────────────────────────
+// حركة منحنية سلسة بدل lerp خطي — مثل Uber/Careem
+function hermiteInterp(t: number): number {
+  // SmoothStep: 3t² - 2t³ (تسارع ثم تباطؤ)
+  return t * t * (3 - 2 * t);
 }
+
+// ─── Dead Reckoning: تقدير الموقع عند غياب البيانات ──────────────────────
+// يحرك الأيقونة بناءً على السرعة والاتجاه بدل التجمد
+const DEAD_RECKONING_MAX_MS = 12000; // أقصى مدة تقدير (12 ثانية)
+const DEG_TO_RAD = Math.PI / 180;
+
+function deadReckon(
+  pos: [number, number],
+  bearingDeg: number,
+  speedKmh: number | null,
+  dtMs: number
+): [number, number] {
+  if (!speedKmh || speedKmh < 2 || dtMs <= 0) return pos;
+  const speedMs = speedKmh / 3.6;
+  const dist = speedMs * (dtMs / 1000);
+  const R = 6371000;
+  const bearingRad = bearingDeg * DEG_TO_RAD;
+  const latRad = pos[1] * DEG_TO_RAD;
+  const dLat = (dist * Math.cos(bearingRad)) / R;
+  const dLng = (dist * Math.sin(bearingRad)) / (R * Math.cos(latRad));
+  return [pos[0] + dLng / DEG_TO_RAD, pos[1] + dLat / DEG_TO_RAD];
+}
+
+// ─── تنعيم الاتجاه (Bearing Smoothing) لمنع الدوران المفاجئ ──────────────
+function lerpAngle(from: number, to: number, t: number): number {
+  let diff = ((to - from + 540) % 360) - 180;
+  return ((from + diff * t) + 360) % 360;
+}
+
+// الوقت المتوقع بين التحديثات (لحساب نسبة t في Hermite)
+const EXPECTED_UPDATE_INTERVAL_MS = 3500;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
@@ -368,14 +396,40 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
           );
         } catch { /* الخريطة غير جاهزة */ }
 
-        // خصائص الباصات
+        // خصائص الباصات — Hermite interpolation + Dead Reckoning
         const features: Feature[] = [];
         stateRef.current.forEach((s, id) => {
-          // lerp تكيفي لتقليل التأخير مع الحفاظ على السلاسة
-          const next = adaptiveLerp(s.current, s.target);
-          s.current = [next.lng, next.lat];
+          const timeSinceUpdate = now - s.lastUpdateMs;
+          const live = timeSinceUpdate < 15_000 && s.isOnline;
 
-          const live = (now - s.lastUpdateMs) < 15_000 && s.isOnline;
+          if (live && timeSinceUpdate < DEAD_RECKONING_MAX_MS) {
+            // ── Hermite interpolation مع Dead Reckoning ──
+            const elapsed = now - s.arrivalMs;
+            const t = Math.min(1, elapsed / EXPECTED_UPDATE_INTERVAL_MS);
+            const h = hermiteInterp(t);
+
+            // حرّك نحو الهدف بـ Hermite (سلس)
+            const interpLng = s.current[0] + (s.target[0] - s.current[0]) * h;
+            const interpLat = s.current[1] + (s.target[1] - s.current[1]) * h;
+
+            if (t >= 0.98) {
+              // وصلنا للهدف — Dead Reckoning لتقدير موقع جديد
+              const drDt = now - s.lastFrameMs;
+              if (drDt > 0 && drDt < 200 && s.speed && s.speed > 2) {
+                const dr = deadReckon([interpLng, interpLat], s.bearing, s.speed, drDt);
+                s.current = dr;
+              } else {
+                s.current = [interpLng, interpLat];
+              }
+            } else {
+              s.current = [interpLng, interpLat];
+            }
+
+            // تنعيم الاتجاه
+            s.bearing = lerpAngle(s.bearing, s.targetBearing, 0.08);
+          }
+
+          s.lastFrameMs = now;
 
           features.push({
             type: "Feature",
@@ -435,22 +489,33 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
         st.set(id, {
           current: target,
           target,
+          prev: target,
           bearing: bus.heading ?? 0,
+          targetBearing: bus.heading ?? 0,
           isOnline: bus.isOnline,
           lastUpdateMs: lastMs,
+          lastFrameMs: Date.now(),
           busNumber: bus.busNumber,
           district: bus.district,
           speed: bus.speed,
+          arrivalMs: Date.now(),
         });
       } else {
         const s = st.get(id)!;
-        const prev = s.target;
-        s.target = target;
-        const dist = Math.abs(target[0] - prev[0]) + Math.abs(target[1] - prev[1]);
+        const prevTarget = s.target;
+        const dist = Math.abs(target[0] - prevTarget[0]) + Math.abs(target[1] - prevTarget[1]);
+
         if (dist > 1e-6) {
-          try { s.bearing = turf.bearing(turf.point(prev), turf.point(target)); }
+          // هدف جديد — حرّك current لموقع الـ Hermite الحالي وابدأ interpolation جديد
+          s.prev = s.current.slice() as [number, number];
+          s.current = s.current.slice() as [number, number]; // تثبيت الموقع الحالي
+          s.target = target;
+          s.arrivalMs = Date.now();
+
+          try { s.targetBearing = turf.bearing(turf.point(prevTarget), turf.point(target)); }
           catch { /* صامت */ }
         }
+
         s.isOnline = bus.isOnline;
         s.lastUpdateMs = lastMs;
         s.busNumber = bus.busNumber;

@@ -96,11 +96,14 @@ export async function GET(request: NextRequest) {
     async start(controller) {
       let closed = false;
       let timer: ReturnType<typeof setInterval> | null = null;
+      let eventId = 0;
 
       const send = (data: unknown) => {
         if (closed) return;
         try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          eventId++;
+          // إرسال id + retry لتسريع إعادة الاتصال التلقائي
+          controller.enqueue(encoder.encode(`id: ${eventId}\nretry: 1000\ndata: ${JSON.stringify(data)}\n\n`));
         } catch {
           closed = true;
         }
@@ -120,8 +123,8 @@ export async function GET(request: NextRequest) {
       // إرسال فوري عند الاتصال
       await fetchAndSend();
 
-      // ثم كل 3 ثوانٍ
-      timer = setInterval(fetchAndSend, 3000);
+      // ثم كل 2 ثانية (أسرع لتقليل التأخير)
+      timer = setInterval(fetchAndSend, 2000);
 
       // إغلاق بعد 24 ثانية (قبل Vercel 25s limit) — EventSource يعيد الاتصال تلقائياً
       const closeTimer = setTimeout(() => {

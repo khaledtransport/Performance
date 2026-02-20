@@ -54,8 +54,56 @@ function classifyGpsAccuracy(acc: number | null): "excellent" | "good" | "poor" 
   if (acc === null) return "unknown";
   if (acc <= 20) return "excellent";
   if (acc <= 100) return "good";
-  if (acc < 300) return "poor";
+  if (acc < 150) return "poor";
   return "cell-tower";
+}
+
+// ── فلتر كالمن 1D خفيف لتنعيم إحداثيات GPS ──────────────────────────────
+// يزيل التذبذب (jitter) مع الحفاظ على الحركة الحقيقية
+class KalmanFilter1D {
+  private x: number;   // القيمة المُقدّرة
+  private p: number;   // خطأ التقدير
+  private q: number;   // ضجيج العملية (process noise)
+  private r: number;   // ضجيج القياس (measurement noise)
+  private initialized: boolean;
+
+  constructor(processNoise = 0.5, measurementNoise = 3) {
+    this.x = 0;
+    this.p = 1;
+    this.q = processNoise;
+    this.r = measurementNoise;
+    this.initialized = false;
+  }
+
+  filter(measurement: number, accuracy?: number | null): number {
+    // ضبط ضجيج القياس ديناميكياً حسب دقة GPS
+    const dynR = accuracy != null && accuracy > 0
+      ? Math.max(this.r, accuracy / 20)
+      : this.r;
+
+    if (!this.initialized) {
+      this.x = measurement;
+      this.p = dynR;
+      this.initialized = true;
+      return measurement;
+    }
+
+    // Predict
+    this.p += this.q;
+
+    // Update
+    const k = this.p / (this.p + dynR);
+    this.x += k * (measurement - this.x);
+    this.p *= (1 - k);
+
+    return this.x;
+  }
+
+  reset() {
+    this.initialized = false;
+    this.x = 0;
+    this.p = 1;
+  }
 }
 
 // حساب المسافة بين نقطتين باستخدام صيغة Haversine (بالمتر)
@@ -104,6 +152,8 @@ export default function DriverTrackingPage() {
   const bestPositionRef = useRef<FullPosition | null>(null);
   const prevGpsPositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
   const calculatedSpeedRef = useRef<number | null>(null);
+  const kalmanLatRef = useRef(new KalmanFilter1D(0.5, 3));
+  const kalmanLngRef = useRef(new KalmanFilter1D(0.5, 3));
   const isTrackingRef = useRef(false);
   const selectedBusIdRef = useRef<string>("");
   const gpsRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -423,6 +473,8 @@ export default function DriverTrackingPage() {
     setCalculatedSpeed(null);
     calculatedSpeedRef.current = null;
     prevGpsPositionRef.current = null;
+    kalmanLatRef.current.reset();
+    kalmanLngRef.current.reset();
     lastSentAtRef.current = 0;
     lastSentPosRef.current = null;
     void setTrackingStatus("start");
@@ -437,125 +489,105 @@ export default function DriverTrackingPage() {
       description: "يتم إرسال موقعك كل 5 ثوانٍ",
     });
 
-    // مراقبة الموقع باستمرار مع أقصى دقة
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude: lat, longitude: lng } = position.coords;
-        const spd = position.coords.speed;
-        const hdg = position.coords.heading;
-        const acc = position.coords.accuracy;
+    // مراقبة الموقع باستمرار مع أقصى دقة + فلتر كالمن
+    const processGpsPosition = (position: GeolocationPosition) => {
+      const rawLat = position.coords.latitude;
+      const rawLng = position.coords.longitude;
+      const spd = position.coords.speed;
+      const hdg = position.coords.heading;
+      const acc = position.coords.accuracy;
 
-        // تحديث واجهة المستخدم دائماً
-        setLatitude(lat);
-        setLongitude(lng);
-        setSpeed(spd);
-        setHeading(hdg);
-        setAccuracy(acc);
-        setGpsError(null);
-        setPermissionStatus("granted");
+      // تصنيف جودة GPS
+      const quality = classifyGpsQuality(acc);
 
-        // تصنيف جودة GPS
-        const quality = classifyGpsQuality(acc);
+      // تطبيق فلتر كالمن لتنعيم الإحداثيات (فقط إذا GPS حقيقي، ليس برج خلوي)
+      let lat: number, lng: number;
+      if (quality !== "cell-tower" && quality !== "unknown") {
+        lat = kalmanLatRef.current.filter(rawLat, acc);
+        lng = kalmanLngRef.current.filter(rawLng, acc);
+      } else {
+        // برج خلوي — لا نُمرره عبر كالمن حتى لا يُفسد التقدير
+        lat = rawLat;
+        lng = rawLng;
+      }
 
-        // حساب المسافة والسرعة من تغير الموقع (فقط إذا الدقة جيدة < 300م)
-        if (quality !== "cell-tower" && quality !== "unknown") {
-          const now = Date.now();
-          const prev = prevGpsPositionRef.current;
-          if (prev) {
-            const dist = haversineDistance(prev.lat, prev.lng, lat, lng);
-            const timeDiffSec = (now - prev.time) / 1000;
-            // تجاهل القفزات الكبيرة (خطأ GPS) أو الصغيرة جداً (ضجيج)
-            if (dist >= 3 && dist < 1000 && timeDiffSec > 0) {
-              setTotalDistance(d => d + dist);
-              // حساب السرعة من المسافة/الوقت (كم/س)
-              const spdCalc = (dist / timeDiffSec) * 3.6;
-              if (spdCalc < 200) { // تجاهل سرعات غير واقعية
-                setCalculatedSpeed(spdCalc);
-                calculatedSpeedRef.current = spdCalc;
-              }
+      // تحديث واجهة المستخدم دائماً
+      setLatitude(lat);
+      setLongitude(lng);
+      setSpeed(spd);
+      setHeading(hdg);
+      setAccuracy(acc);
+      setGpsError(null);
+      setPermissionStatus("granted");
+
+      // حساب المسافة والسرعة من تغير الموقع (فقط إذا الدقة جيدة < 150م)
+      if (quality !== "cell-tower" && quality !== "unknown") {
+        const now = Date.now();
+        const prev = prevGpsPositionRef.current;
+        if (prev) {
+          const dist = haversineDistance(prev.lat, prev.lng, lat, lng);
+          const timeDiffSec = (now - prev.time) / 1000;
+          // تجاهل القفزات الكبيرة (خطأ GPS) أو الصغيرة جداً (ضجيج)
+          if (dist >= 2 && dist < 500 && timeDiffSec > 0.5) {
+            setTotalDistance(d => d + dist);
+            const spdCalc = (dist / timeDiffSec) * 3.6;
+            if (spdCalc < 200) {
+              setCalculatedSpeed(spdCalc);
+              calculatedSpeedRef.current = spdCalc;
             }
           }
-          prevGpsPositionRef.current = { lat, lng, time: now };
         }
-        setGpsQuality(quality);
+        prevGpsPositionRef.current = { lat, lng, time: now };
+      }
+      setGpsQuality(quality);
 
-        // حفظ كامل البيانات في المرجع
-        const fullPos: FullPosition = { lat, lng, speed: spd, heading: hdg, accuracy: acc };
-        lastPositionRef.current = fullPos;
+      // حفظ كامل البيانات في المرجع (بعد كالمن)
+      const fullPos: FullPosition = { lat, lng, speed: spd, heading: hdg, accuracy: acc };
+      lastPositionRef.current = fullPos;
 
-        // إرسال ذكي أسرع لتقليل التأخير/القفز
-        const nowMs = Date.now();
-        const lastSentPos = lastSentPosRef.current;
-        const movedMeters = lastSentPos
-          ? haversineDistance(lastSentPos.lat, lastSentPos.lng, lat, lng)
-          : Number.POSITIVE_INFINITY;
+      // إرسال ذكي: كل 3 ثوانٍ أو إذا تحرك >= 8 أمتار
+      const nowMs = Date.now();
+      const lastSentPos = lastSentPosRef.current;
+      const movedMeters = lastSentPos
+        ? haversineDistance(lastSentPos.lat, lastSentPos.lng, lat, lng)
+        : Number.POSITIVE_INFINITY;
+      // لا ترسل إذا الحركة أقل من 3 أمتار والسرعة ≈ 0 (ثابت)
+      const isStationary = movedMeters < 3 && (spd === null || spd < 0.5);
 
-        if (nowMs - lastSentAtRef.current >= 2500 || movedMeters >= 12) {
-          void sendLocation(fullPos);
-          lastSentAtRef.current = nowMs;
-          lastSentPosRef.current = { lat, lng };
-        }
+      if (!isStationary && (nowMs - lastSentAtRef.current >= 3000 || movedMeters >= 8)) {
+        void sendLocation(fullPos);
+        lastSentAtRef.current = nowMs;
+        lastSentPosRef.current = { lat, lng };
+      } else if (nowMs - lastSentAtRef.current >= 10000) {
+        // إرسال heartbeat كل 10 ثوانٍ حتى لو ثابت (لتأكيد أن السائق متصل)
+        void sendLocation(fullPos);
+        lastSentAtRef.current = nowMs;
+        lastSentPosRef.current = { lat, lng };
+      }
 
-        // حفظ أفضل موقع GPS (دقة < 300م) للاستخدام عند سقوط GPS
-        if (quality !== "cell-tower" && quality !== "unknown") {
-          bestPositionRef.current = fullPos;
-        }
+      // حفظ أفضل موقع GPS
+      if (quality !== "cell-tower" && quality !== "unknown") {
+        bestPositionRef.current = fullPos;
+      }
 
-        // إذا كان الموقع من برج خلوي، حاول تحفيز GPS مرة أخرى
-        if (quality === "cell-tower" && !gpsRetryTimerRef.current) {
-          gpsRetryTimerRef.current = setTimeout(() => {
-            gpsRetryTimerRef.current = null;
-            // إعادة تشغيل watchPosition لتحفيز GPS
-            if (watchIdRef.current !== null && isTrackingRef.current) {
-              navigator.geolocation.clearWatch(watchIdRef.current);
-              watchIdRef.current = navigator.geolocation.watchPosition(
-                (pos) => {
-                  const coords = pos.coords;
-                  const newQuality = classifyGpsQuality(coords.accuracy);
-                  setLatitude(coords.latitude);
-                  setLongitude(coords.longitude);
-                  setSpeed(coords.speed);
-                  setHeading(coords.heading);
-                  setAccuracy(coords.accuracy);
-                  setGpsError(null);
-                  setPermissionStatus("granted");
-                  setGpsQuality(newQuality);
+      // إذا كان الموقع من برج خلوي، حاول تحفيز GPS مرة أخرى
+      if (quality === "cell-tower" && !gpsRetryTimerRef.current) {
+        gpsRetryTimerRef.current = setTimeout(() => {
+          gpsRetryTimerRef.current = null;
+          if (watchIdRef.current !== null && isTrackingRef.current) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = navigator.geolocation.watchPosition(
+              processGpsPosition,
+              () => {},
+              { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
+            );
+          }
+        }, 5000);
+      }
+    };
 
-                  // حساب المسافة والسرعة (نفس المنطق الأصلي)
-                  if (newQuality !== "cell-tower" && newQuality !== "unknown") {
-                    const now2 = Date.now();
-                    const prev2 = prevGpsPositionRef.current;
-                    if (prev2) {
-                      const dist2 = haversineDistance(prev2.lat, prev2.lng, coords.latitude, coords.longitude);
-                      const td2 = (now2 - prev2.time) / 1000;
-                      if (dist2 >= 3 && dist2 < 1000 && td2 > 0) {
-                        setTotalDistance(d => d + dist2);
-                        const sc2 = (dist2 / td2) * 3.6;
-                        if (sc2 < 200) {
-                          setCalculatedSpeed(sc2);
-                          calculatedSpeedRef.current = sc2;
-                        }
-                      }
-                    }
-                    prevGpsPositionRef.current = { lat: coords.latitude, lng: coords.longitude, time: now2 };
-                  }
-
-                  const fp: FullPosition = {
-                    lat: coords.latitude, lng: coords.longitude,
-                    speed: coords.speed, heading: coords.heading, accuracy: coords.accuracy
-                  };
-                  lastPositionRef.current = fp;
-                  if (newQuality !== "cell-tower" && newQuality !== "unknown") {
-                    bestPositionRef.current = fp;
-                  }
-                },
-                () => {},
-                { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
-              );
-            }
-          }, 5000);
-        }
-      },
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      processGpsPosition,
       (error) => {
         let msg = "خطأ غير معروف في GPS";
         switch (error.code) {
@@ -579,17 +611,7 @@ export default function DriverTrackingPage() {
       }
     );
 
-    // إرسال الموقع كل 5 ثوانٍ مع كامل البيانات
-    intervalRef.current = setInterval(() => {
-      const pos = lastPositionRef.current;
-      if (pos) {
-        sendLocation(pos);
-        lastSentAtRef.current = Date.now();
-        lastSentPosRef.current = { lat: pos.lat, lng: pos.lng };
-      }
-    }, 3000);
-
-    // إرسال أول موقع بعد 3 ثوانٍ لإعطاء GPS وقت للتثبيت
+    // إرسال أول موقع بعد 3 ثوانٍ لإعطاء GPS وقت للتثبيت (لا حاجة لـ setInterval مزدوج)
     firstPositionTimeoutRef.current = setTimeout(() => {
       const pos = lastPositionRef.current;
       if (pos) {
@@ -620,6 +642,8 @@ export default function DriverTrackingPage() {
     bestPositionRef.current = null;
     prevGpsPositionRef.current = null;
     calculatedSpeedRef.current = null;
+    kalmanLatRef.current.reset();
+    kalmanLngRef.current.reset();
     lastSentAtRef.current = 0;
     lastSentPosRef.current = null;
     setIsTracking(false);

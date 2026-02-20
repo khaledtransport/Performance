@@ -200,8 +200,8 @@ export async function GET(request: Request) {
       }));
     }
 
-    // كاش 2 ثانية لتقليل ضغط DB مع استجابة سريعة للتحديثات
-    apiCache.set(cacheKey, busLocations, 2000);
+    // كاش 1 ثانية لتقليل ضغط DB مع استجابة سريعة للتحديثات
+    apiCache.set(cacheKey, busLocations, 1000);
 
     return NextResponse.json(busLocations, {
       headers: { "X-Cache": "MISS" },
@@ -429,6 +429,51 @@ export async function POST(request: Request) {
         ? ((heading % 360) + 360) % 360
         : null;
     const parsedAccuracy = accuracy ?? null;
+
+    // ── رفض النقاط الشاذة (Outlier Rejection) ─────────────────────────
+    // مقارنة النقطة الجديدة بآخر نقطة محفوظة — رفض القفزات المستحيلة
+    if (parsedAccuracy !== null && parsedAccuracy > 200) {
+      // دقة أسوأ من 200 متر — لا تُحفظ (تشوّش الخريطة)
+      return NextResponse.json(
+        { warning: "low_accuracy", accuracy: parsedAccuracy },
+        { status: 200 }
+      );
+    }
+
+    try {
+      const lastPoint = await prisma.trackingPoint.findFirst({
+        where: { busId },
+        orderBy: { timestamp: "desc" },
+        select: { latitude: true, longitude: true, timestamp: true },
+      });
+
+      if (lastPoint) {
+        const dLat = parsedLatitude - lastPoint.latitude;
+        const dLng = parsedLongitude - lastPoint.longitude;
+        const R = 6371000;
+        const latRad = parsedLatitude * Math.PI / 180;
+        const distMeters = Math.sqrt(
+          (dLat * Math.PI / 180 * R) ** 2 +
+          (dLng * Math.PI / 180 * R * Math.cos(latRad)) ** 2
+        );
+        const dtSec = (Date.now() - new Date(lastPoint.timestamp).getTime()) / 1000;
+
+        // الحد الأقصى: 150 كم/س (42 م/ث) — أي نقطة تتجاوز ذلك مرفوضة
+        const maxSpeedMs = 42;
+        const maxDist = Math.max(200, maxSpeedMs * Math.max(dtSec, 1) * 2);
+
+        if (distMeters > maxDist && dtSec < 120) {
+          // قفزة مستحيلة — ارفضها
+          console.warn(`Outlier rejected: bus=${busId} dist=${distMeters.toFixed(0)}m dt=${dtSec.toFixed(0)}s`);
+          return NextResponse.json(
+            { warning: "outlier_rejected", distance: distMeters, dt: dtSec },
+            { status: 200 }
+          );
+        }
+      }
+    } catch {
+      // إذا فشل الفحص — أكمل وخزّن النقطة (أفضل من فقدانها)
+    }
 
     const location = await prisma.$transaction(async (tx) => {
       const now = new Date();
