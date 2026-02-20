@@ -16,7 +16,6 @@ import { Bus, Eye, EyeOff, Lock, User, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -24,8 +23,6 @@ export default function LoginPage() {
   const [form, setForm] = useState({
     username: "",
     password: "",
-    fullName: "",
-    email: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,23 +31,10 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const endpoint = isLogin
-        ? "/Performance/api/auth/login"
-        : "/Performance/api/auth/register";
-
-      const body = isLogin
-        ? { username: form.username, password: form.password }
-        : {
-            username: form.username,
-            password: form.password,
-            fullName: form.fullName,
-            email: form.email || undefined,
-          };
-
-      const res = await fetch(endpoint, {
+      const res = await fetch("/Performance/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ username: form.username, password: form.password }),
       });
 
       const data = await res.json();
@@ -91,7 +75,7 @@ export default function LoginPage() {
             نظام النقل الجامعي
           </CardTitle>
           <CardDescription className="text-slate-500 dark:text-slate-400">
-            {isLogin ? "سجّل دخولك للمتابعة" : "أنشئ حساباً جديداً"}
+            سجّل دخولك للمتابعة
           </CardDescription>
         </CardHeader>
 
@@ -104,22 +88,6 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">الاسم الكامل</Label>
-                <Input
-                  id="fullName"
-                  placeholder="أدخل اسمك الكامل"
-                  value={form.fullName}
-                  onChange={(e) =>
-                    setForm({ ...form, fullName: e.target.value })
-                  }
-                  required={!isLogin}
-                  className="text-right"
-                />
-              </div>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="username">اسم المستخدم</Label>
               <div className="relative">
@@ -136,21 +104,6 @@ export default function LoginPage() {
                 <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               </div>
             </div>
-
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني (اختياري)</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="example@email.com"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="text-left"
-                  dir="ltr"
-                />
-              </div>
-            )}
 
             <div className="space-y-2">
               <Label htmlFor="password">كلمة المرور</Label>
@@ -192,27 +145,11 @@ export default function LoginPage() {
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   جاري المعالجة...
                 </div>
-              ) : isLogin ? (
-                "تسجيل الدخول"
               ) : (
-                "إنشاء الحساب"
+                "تسجيل الدخول"
               )}
             </Button>
           </form>
-
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError("");
-              }}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              {isLogin
-                ? "ليس لديك حساب؟ أنشئ حساباً جديداً"
-                : "لديك حساب بالفعل؟ سجّل دخولك"}
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>

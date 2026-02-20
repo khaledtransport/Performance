@@ -12,7 +12,7 @@ const JWT_SECRET = JWT_SECRET_BYTES;
 const rateLimit = new Map<string, { count: number; resetTime: number }>();
 
 // المسارات العامة التي لا تحتاج مصادقة
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/register", "/api/health", "/offline"];
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/health", "/offline"];
 
 // المسارات المحمية حسب الدور
 const ROLE_ROUTES: Record<string, string[]> = {

@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, createToken, setAuthCookie } from "@/lib/auth";
+import { hashPassword, createToken, setAuthCookie, getCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    // التسجيل متاح فقط للمشرفين — لا يمكن لأحد التسجيل بنفسه
+    const currentUser = await getCurrentUser();
+    if (!currentUser || currentUser.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "فقط المدير يمكنه إنشاء حسابات جديدة" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { username, password, fullName, email, role } = body;
 
@@ -41,6 +50,11 @@ export async function POST(request: Request) {
     // تشفير كلمة المرور
     const passwordHash = await hashPassword(password);
 
+    // الدور الافتراضي: VIEWER — لا يُسمح بتمرير الدور من الطلب
+    // فقط ADMIN يمكنه تعيين أدوار أخرى (يتم التحقق عبر middleware)
+    const allowedRoles = ["ADMIN", "MANAGER", "DELEGATE", "DRIVER", "VIEWER"];
+    const safeRole = (role && allowedRoles.includes(role)) ? role : "VIEWER";
+
     // إنشاء المستخدم
     const user = await prisma.user.create({
       data: {
@@ -48,7 +62,7 @@ export async function POST(request: Request) {
         passwordHash,
         fullName: fullName.trim(),
         email: email ? email.toLowerCase().trim() : null,
-        role: role || "VIEWER",
+        role: safeRole,
       },
     });
 
