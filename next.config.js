@@ -1,3 +1,5 @@
+const { withSentryConfig } = require("@sentry/nextjs");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -81,4 +83,27 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+  // تحميل خرائط المصدر تلقائياً إلى Sentry
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // إخفاء خرائط المصدر من العميل
+  hideSourceMaps: true,
+
+  // توسيع تحميل ملفات العميل لتغطية أفضل
+  widenClientFileUpload: true,
+
+  // تعطيل سجلات التصحيح في الإنتاج
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+
+  // تفعيل فقط عند وجود Auth Token
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+
+  // تعطيل تحميل المصدر إذا لا يوجد token
+  ...(process.env.SENTRY_AUTH_TOKEN ? {} : { sourcemaps: { disable: true } }),
+});

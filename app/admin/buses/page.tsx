@@ -13,8 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2, QrCode } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import QRCodeModal from "@/components/qr-code-modal";
 
 interface District {
   id: string;
@@ -42,6 +43,7 @@ export default function BusesPage() {
     districtIds: [] as string[],
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [qrBus, setQrBus] = useState<{ id: string; busNumber: string } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -189,6 +191,15 @@ export default function BusesPage() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    onClick={() => setQrBus({ id: bus.id, busNumber: bus.busNumber })}
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    title="رمز QR"
+                  >
+                    <QrCode className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleEdit(bus)}
                     className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                   >
@@ -308,6 +319,16 @@ export default function BusesPage() {
           </Card>
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      {qrBus && (
+        <QRCodeModal
+          isOpen={!!qrBus}
+          onClose={() => setQrBus(null)}
+          busNumber={qrBus.busNumber}
+          busId={qrBus.id}
+        />
+      )}
     </div>
   );
 }

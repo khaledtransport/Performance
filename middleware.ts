@@ -2,14 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { JWT_SECRET_BYTES } from "@/lib/jwt-config";
+import { checkRateLimit, rateLimiter, authRateLimiter, trackingRateLimiter, getClientIP } from "@/lib/rate-limit";
 
 const JWT_SECRET = JWT_SECRET_BYTES;
-
-// تحذير: Rate Limiting بالذاكرة لا يعمل على Vercel (serverless لا تحتفظ بالحالة)
-// الحل الدائم: إضافة Upstash Redis أو Vercel KV
-// TODO: استبدل هذا بـ @upstash/ratelimit عند التحضير للإنتاج
-// في الوقت الحالي: الحماية موجودة في login API (delay عند فشل تسجيل الدخول) + JWT مطلوب لكل طلب
-const rateLimit = new Map<string, { count: number; resetTime: number }>();
 
 // المسارات العامة التي لا تحتاج مصادقة
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/health", "/offline"];
@@ -41,24 +36,33 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const cleanPath = pathname.replace("/Performance", "");
 
-  // Rate Limiting محلي (development) — غير فعّال على Vercel production
+  // Rate Limiting باستخدام Upstash Redis (يعمل على Edge و Serverless)
   if (cleanPath.startsWith("/api/")) {
-    // استخراج IP صحيح خلف proxy/CDN
-    const forwarded = request.headers.get("x-forwarded-for");
-    const ip = forwarded ? forwarded.split(",")[0].trim() : (request.headers.get("x-real-ip") ?? "unknown");
-    const now = Date.now();
-    const limit = rateLimit.get(ip);
+    const ip = getClientIP(request);
+    
+    // اختيار المحدد المناسب حسب نوع الطلب
+    let limiter = rateLimiter;
+    if (cleanPath.startsWith("/api/auth/login")) {
+      limiter = authRateLimiter; // 5 محاولات / دقيقة
+    } else if (cleanPath.startsWith("/api/tracking") || cleanPath.startsWith("/api/driver/")) {
+      limiter = trackingRateLimiter; // 60 طلب / 10 ثوانٍ
+    }
 
-    if (limit && now < limit.resetTime) {
-      if (limit.count >= 200) {
-        return NextResponse.json(
-          { error: "تم تجاوز الحد الأقصى للطلبات. يرجى المحاولة لاحقاً." },
-          { status: 429 }
-        );
-      }
-      limit.count++;
-    } else {
-      rateLimit.set(ip, { count: 1, resetTime: now + 60000 });
+    const { success, limit, remaining, reset } = await checkRateLimit(ip, limiter);
+    
+    if (!success) {
+      return NextResponse.json(
+        { error: "تم تجاوز الحد الأقصى للطلبات. يرجى المحاولة لاحقاً." },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': limit.toString(),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': reset.toString(),
+            'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString(),
+          },
+        }
+      );
     }
   }
 
