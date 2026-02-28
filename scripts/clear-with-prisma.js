@@ -1,12 +1,8 @@
 const { PrismaClient } = require('@prisma/client')
+const { PrismaPg } = require('@prisma/adapter-pg')
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DIRECT_URL
-    }
-  }
-})
+const adapter = new PrismaPg({ connectionString: process.env.DIRECT_URL || process.env.DATABASE_URL })
+const prisma = new PrismaClient({ adapter })
 
 async function clearDatabase() {
   console.log('🗑️  بدء حذف جميع البيانات من قاعدة البيانات...\n')

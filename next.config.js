@@ -5,10 +5,7 @@ const nextConfig = {
   reactStrictMode: true,
   basePath: "/Performance",
   output: "standalone",
-  eslint: {
-    // Tailwind v4 class names differ from v3 — lint warnings don’t block build
-    ignoreDuringBuilds: true,
-  },
+
   typescript: {
     // فحص TypeScript مفعّل — الأخطاء توقف البناء
     ignoreBuildErrors: false,
@@ -21,9 +18,6 @@ const nextConfig = {
   // تحسين الحزمة
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
-  },
-  experimental: {
-    optimizeCss: false,
   },
   async headers() {
     return [
@@ -93,13 +87,6 @@ module.exports = withSentryConfig(nextConfig, {
 
   // توسيع تحميل ملفات العميل لتغطية أفضل
   widenClientFileUpload: true,
-
-  // تعطيل سجلات التصحيح في الإنتاج
-  webpack: {
-    treeshake: {
-      removeDebugLogging: true,
-    },
-  },
 
   // تفعيل فقط عند وجود Auth Token
   silent: !process.env.SENTRY_AUTH_TOKEN,

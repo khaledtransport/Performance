@@ -10,7 +10,7 @@ export const createRouteSchema = z.object({
 
 export type CreateRouteInput = z.infer<typeof createRouteSchema>;
 
-export function validateRequest<T>(schema: z.ZodSchema<T>) {
+export function validateRequest<T>(schema: z.ZodType<T>) {
     return async (request: NextRequest): Promise<{ data: T | null; error: NextResponse | null }> => {
         try {
             const body = await request.json();

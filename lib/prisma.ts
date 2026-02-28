@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -19,31 +20,21 @@ function buildConnectionUrl(): string {
 
 const connectionUrl = buildConnectionUrl();
 
+// Prisma 7: يتطلب adapter بدلاً من datasourceUrl
+const adapter = new PrismaPg({ connectionString: connectionUrl });
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    adapter,
     log:
       process.env.NODE_ENV === "development"
         ? [
-            { emit: "event", level: "query" },
+            { emit: "stdout", level: "query" },
             { emit: "stdout", level: "error" },
             { emit: "stdout", level: "warn" },
           ]
         : [{ emit: "stdout", level: "error" }], // في الإنتاج: فقط الأخطاء
-    datasources: {
-      db: {
-        url: connectionUrl,
-      },
-    },
   });
-
-// مراقبة الاستعلامات البطيئة في التطوير فقط
-if (process.env.NODE_ENV === "development") {
-  prisma.$on("query" as never, (e: { duration: number; query: string }) => {
-    if (e.duration > 500) {
-      console.warn(`⚠️ Slow query (${e.duration}ms): ${e.query.substring(0, 100)}`);
-    }
-  });
-}
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
