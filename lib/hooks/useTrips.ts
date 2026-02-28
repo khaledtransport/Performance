@@ -21,7 +21,12 @@ export function useTrips(filters: TripFilters = {}) {
   if (filters.routeId) params.set('routeId', filters.routeId)
 
   const key = `/Performance/api/trips${params.toString() ? `?${params.toString()}` : ''}`
-  const { data, error, mutate, isLoading } = useSWR(key, fetcher, { refreshInterval: 60_000 })
+  const { data, error, mutate, isLoading } = useSWR(key, fetcher, {
+    refreshInterval: 60_000,
+    dedupingInterval: 10_000,
+    revalidateOnFocus: false,
+    keepPreviousData: true,
+  })
 
   return {
     trips: Array.isArray(data) ? data : [],

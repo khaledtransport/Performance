@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, createToken, setAuthCookie, getCurrentUser } from "@/lib/auth";
+import { hashPassword, getCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -66,18 +66,7 @@ export async function POST(request: Request) {
       },
     });
 
-    // إنشاء التوكن
-    const token = await createToken({
-      id: user.id,
-      username: user.username,
-      fullName: user.fullName,
-      role: user.role,
-      email: user.email,
-    });
-
-    // تعيين الكوكي
-    await setAuthCookie(token);
-
+    // لا نغيّر جلسة الأدمن — فقط نرجع بيانات المستخدم الجديد
     return NextResponse.json({
       success: true,
       user: {

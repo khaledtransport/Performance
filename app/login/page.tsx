@@ -59,7 +59,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950 p-4">
       {/* خلفية زخرفية */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-400/10 rounded-full blur-3xl" />
@@ -68,7 +68,7 @@ export default function LoginPage() {
 
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-4 p-4 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl w-fit shadow-lg shadow-blue-500/30">
+          <div className="mx-auto mb-4 p-4 bg-linear-to-br from-blue-500 to-blue-700 rounded-2xl w-fit shadow-lg shadow-blue-500/30">
             <Bus className="w-10 h-10 text-white" />
           </div>
           <CardTitle className="text-2xl font-bold text-slate-800 dark:text-white">
@@ -137,7 +137,7 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-6 text-base font-medium shadow-lg shadow-blue-500/25 transition-all duration-300"
+              className="w-full bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-6 text-base font-medium shadow-lg shadow-blue-500/25 transition-all duration-300"
               disabled={loading}
             >
               {loading ? (

@@ -186,7 +186,7 @@ export function NavigationBar() {
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all">
+              <div className="p-2 bg-linear-to-br from-blue-500 to-blue-700 rounded-lg group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all">
                 <BarChart3 className="w-5 h-5 text-white" />
               </div>
               <span className="text-lg font-bold text-slate-800 hidden sm:inline">
@@ -279,7 +279,7 @@ export function NavigationBar() {
                     onClick={() => setShowUserMenu((v) => !v)}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                    <div className="w-7 h-7 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
                       {user.fullName.charAt(0)}
                     </div>
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300 max-w-22.5 truncate hidden lg:block">
@@ -321,7 +321,7 @@ export function NavigationBar() {
             {user && (
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">
+                  <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">
                     {user.fullName.charAt(0)}
                   </div>
                   <div>

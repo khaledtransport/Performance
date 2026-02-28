@@ -65,7 +65,7 @@ export function QuickNavigationLinks({ limit = 5 }: { limit?: number }) {
           <div className="group relative h-full bg-white border border-slate-200 rounded-lg p-3 md:p-4 hover:border-slate-300 hover:bg-slate-50 transition-all duration-300 cursor-pointer hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-0.5">
             <div className="flex items-start justify-between mb-2 md:mb-3">
               <div
-                className={`p-1.5 md:p-2 bg-gradient-to-br ${link.color} rounded text-white shadow-sm`}
+                className={`p-1.5 md:p-2 bg-linear-to-br ${link.color} rounded text-white shadow-sm`}
               >
                 {link.icon}
               </div>

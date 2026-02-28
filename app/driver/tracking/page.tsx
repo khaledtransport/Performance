@@ -855,7 +855,7 @@ export default function DriverTrackingPage() {
   const activeBus = assignedBus || availableBuses.find((b) => b.id === selectedBusId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 p-4 md:p-6" dir="rtl">
+    <div className="min-h-screen bg-linear-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 p-4 md:p-6" dir="rtl">
       <div className="max-w-2xl mx-auto space-y-4">
         {/* العنوان */}
         <div className="text-center mb-6">

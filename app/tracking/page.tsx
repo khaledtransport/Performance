@@ -137,13 +137,13 @@ export default function TrackingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
         {/* العنوان */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl">
+              <div className="p-2 bg-linear-to-br from-green-500 to-emerald-600 rounded-xl">
                 <Navigation className="w-6 h-6 text-white" />
               </div>
               تتبع الباصات المباشر
@@ -186,7 +186,7 @@ export default function TrackingPage() {
 
         {/* إحصائيات سريعة */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-0">
+          <Card className="bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-0">
             <CardContent className="p-4 flex items-center gap-3">
               <Bus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               <div>
@@ -197,7 +197,7 @@ export default function TrackingPage() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-0">
+          <Card className="bg-linear-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-0">
             <CardContent className="p-4 flex items-center gap-3">
               <Wifi className="w-8 h-8 text-green-600 dark:text-green-400" />
               <div>
@@ -208,7 +208,7 @@ export default function TrackingPage() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 border-0">
+          <Card className="bg-linear-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 border-0">
             <CardContent className="p-4 flex items-center gap-3">
               <WifiOff className="w-8 h-8 text-red-600 dark:text-red-400" />
               <div>
@@ -219,7 +219,7 @@ export default function TrackingPage() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-0">
+          <Card className="bg-linear-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-0">
             <CardContent className="p-4 flex items-center gap-3">
               <Gauge className="w-8 h-8 text-purple-600 dark:text-purple-400" />
               <div>

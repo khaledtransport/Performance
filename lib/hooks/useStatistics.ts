@@ -9,7 +9,12 @@ const fetcher = async (url: string) => {
 export function useStatistics(date?: string) {
   const d = date || new Date().toISOString().split('T')[0]
   const key = `/Performance/api/statistics?date=${d}`
-  const { data, error, mutate, isLoading } = useSWR(key, fetcher, { refreshInterval: 120_000 })
+  const { data, error, mutate, isLoading } = useSWR(key, fetcher, {
+    refreshInterval: 120_000,
+    dedupingInterval: 30_000,
+    revalidateOnFocus: false,
+    keepPreviousData: true,
+  })
 
   return {
     statistics: data,

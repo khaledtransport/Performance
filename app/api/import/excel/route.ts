@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import * as XLSX from "xlsx";
 
 // POST: استيراد ملف Excel وتحويله إلى رحلات
 export async function POST(request: NextRequest) {
   try {
+    // التحقق من المصادقة والصلاحيات
+    const user = await getCurrentUser();
+    if (!user || !["ADMIN", "MANAGER"].includes(user.role)) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
@@ -53,50 +60,48 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     };
 
-    // معالجة كل سطر من الملف
+    // معالجة كل سطر من الملف — مع كاش محلي لتجنب N+1 queries
+    const uniCache = new Map<string, { id: string }>();
+    const driverCache = new Map<string, { id: string }>();
+    const busCache = new Map<string, { id: string }>();
+    const repCache = new Map<string, { id: string }>();
+
     for (const row of data) {
       try {
-        // جلب أو إنشاء الجامعة
-        let university = await prisma.university.findFirst({
-          where: { name: row["الجامعة"] || row["اسم الجامعة"] },
-        });
+        // جلب أو إنشاء الجامعة (مع كاش)
+        const uniName = row["الجامعة"] || row["اسم الجامعة"];
+        let university = uniCache.get(uniName);
         if (!university) {
-          university = await prisma.university.create({
-            data: { name: row["الجامعة"] || row["اسم الجامعة"] },
-          });
+          university = await prisma.university.findFirst({ where: { name: uniName } })
+            ?? await prisma.university.create({ data: { name: uniName } });
+          uniCache.set(uniName, university);
         }
 
-        // جلب أو إنشاء السائق
-        let driver = await prisma.driver.findFirst({
-          where: { name: row["السائق"] || row["اسم السائق"] },
-        });
+        // جلب أو إنشاء السائق (مع كاش)
+        const drvName = row["السائق"] || row["اسم السائق"];
+        let driver = driverCache.get(drvName);
         if (!driver) {
-          driver = await prisma.driver.create({
-            data: { name: row["السائق"] || row["اسم السائق"] },
-          });
+          driver = await prisma.driver.findFirst({ where: { name: drvName } })
+            ?? await prisma.driver.create({ data: { name: drvName } });
+          driverCache.set(drvName, driver);
         }
 
-        // جلب أو إنشاء الباص
-        let bus = await prisma.bus.findFirst({
-          where: { busNumber: String(row["الباص"] || row["رقم الباص"]) },
-        });
+        // جلب أو إنشاء الباص (مع كاش)
+        const busNum = String(row["الباص"] || row["رقم الباص"]);
+        let bus = busCache.get(busNum);
         if (!bus) {
-          bus = await prisma.bus.create({
-            data: {
-              busNumber: String(row["الباص"] || row["رقم الباص"]),
-              capacity: 50,
-            },
-          });
+          bus = await prisma.bus.findFirst({ where: { busNumber: busNum } })
+            ?? await prisma.bus.create({ data: { busNumber: busNum, capacity: 50 } });
+          busCache.set(busNum, bus);
         }
 
-        // جلب أو إنشاء المندوب
-        let representative = await prisma.representative.findFirst({
-          where: { name: row["المندوب"] || row["اسم المندوب"] },
-        });
+        // جلب أو إنشاء المندوب (مع كاش)
+        const repName = row["المندوب"] || row["اسم المندوب"];
+        let representative = repCache.get(repName);
         if (!representative) {
-          representative = await prisma.representative.create({
-            data: { name: row["المندوب"] || row["اسم المندوب"] },
-          });
+          representative = await prisma.representative.findFirst({ where: { name: repName } })
+            ?? await prisma.representative.create({ data: { name: repName } });
+          repCache.set(repName, representative);
         }
 
         // إنشاء الرحلة الأساسية
