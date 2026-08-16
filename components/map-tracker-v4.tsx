@@ -9,16 +9,22 @@
  * - GPU rendering لكل الأيقونات  → أداء ثابت مع أي عدد من الباصات
  * - setData() واحدة في كل RAF     → لا reflow، لا DOM mutations
  * - pulse حقيقي داخل MapLibre     → circle-radius متغيّر في الـ loop
- * - bearing بـ turf من آخر نقطتين + lerp سلس
+ * - اتجاه ثابت من حركة معتبرة تتجاوز هامش دقة GPS
  * - أسماء الشوارع عربية
  * - auto-fit على الباصات الحقيقية فقط (hasLocation)
  * - نفس Props الـ v2/v3 (drop-in)
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
+import { Crosshair } from "lucide-react";
 import "maplibre-gl/dist/maplibre-gl.css";
-import * as turf from "@turf/turf";
+import {
+  bearingBetweenPoints,
+  haversineDistanceMeters,
+  movementThresholdMeters,
+  normalizeHeading,
+} from "@/lib/tracking-geo";
 
 // ── RTL Text Plugin: يُستدعى مرة واحدة على مستوى المودول ──────────────────
 // ضروري لعرض الخط العربي بشكل صحيح (من اليمين لليسار، غير مقلوب)
@@ -47,6 +53,7 @@ interface BusLocation {
   heading: number | null;
   accuracy?: number | null;
   lastUpdate: string;
+  lastSeenAt?: string;
   isOnline: boolean;
   hasLocation?: boolean;
   isCellTower?: boolean;
@@ -60,6 +67,7 @@ interface Props {
 
 type FC = GeoJSON.FeatureCollection<GeoJSON.Point>;
 type Feature = GeoJSON.Feature<GeoJSON.Point>;
+type LineFC = GeoJSON.FeatureCollection<GeoJSON.LineString>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // حالة module-level
@@ -81,11 +89,13 @@ interface BusAnim {
   targetBearing: number;        // الاتجاه المستهدف (للتنعيم)
   isOnline: boolean;
   lastUpdateMs: number;
-  lastFrameMs: number;          // آخر frame للـ Dead Reckoning
+  lastSeenMs: number;
   busNumber: string;
   district: string;
   speed: number | null;
+  accuracy: number | null;
   arrivalMs: number;            // متى وصل التحديث (لحساب وتيرة الحركة)
+  trail: [number, number][];
 }
 
 // ─── Hermite Spline Interpolation ─────────────────────────────────────────
@@ -95,36 +105,24 @@ function hermiteInterp(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
-// ─── Dead Reckoning: تقدير الموقع عند غياب البيانات ──────────────────────
-// يحرك الأيقونة بناءً على السرعة والاتجاه بدل التجمد
-const DEAD_RECKONING_MAX_MS = 12000; // أقصى مدة تقدير (12 ثانية)
-const DEG_TO_RAD = Math.PI / 180;
-
-function deadReckon(
-  pos: [number, number],
-  bearingDeg: number,
-  speedKmh: number | null,
-  dtMs: number
-): [number, number] {
-  if (!speedKmh || speedKmh < 2 || dtMs <= 0) return pos;
-  const speedMs = speedKmh / 3.6;
-  const dist = speedMs * (dtMs / 1000);
-  const R = 6371000;
-  const bearingRad = bearingDeg * DEG_TO_RAD;
-  const latRad = pos[1] * DEG_TO_RAD;
-  const dLat = (dist * Math.cos(bearingRad)) / R;
-  const dLng = (dist * Math.sin(bearingRad)) / (R * Math.cos(latRad));
-  return [pos[0] + dLng / DEG_TO_RAD, pos[1] + dLat / DEG_TO_RAD];
-}
-
 // ─── تنعيم الاتجاه (Bearing Smoothing) لمنع الدوران المفاجئ ──────────────
 function lerpAngle(from: number, to: number, t: number): number {
-  let diff = ((to - from + 540) % 360) - 180;
+  const diff = ((to - from + 540) % 360) - 180;
   return ((from + diff * t) + 360) % 360;
 }
 
 // الوقت المتوقع بين التحديثات (لحساب نسبة t في Hermite)
-const EXPECTED_UPDATE_INTERVAL_MS = 3500;
+const EXPECTED_UPDATE_INTERVAL_MS = 2800;
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;",
+  })[character] ?? character);
+}
 
 function getCartoTiles(dark: boolean): string[] {
   const style = dark ? "dark_all" : "light_all";
@@ -146,6 +144,8 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
   const readyRef    = useRef(false);
   const pulseRef    = useRef(0);
   const popupRef    = useRef<maplibregl.Popup | null>(null);
+  const followRef   = useRef(true);
+  const [isFollowing, setIsFollowing] = useState(true);
 
   // ── مرجع للـ callbacks حتى لا تُعيد الـ RAF إنشاء الـ effect ──────────────
   const onSelectRef = useRef(onSelectBus);
@@ -200,6 +200,10 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
       const c = map.getCenter();
       savedCenter = [c.lng, c.lat];
     });
+    map.on("dragstart", () => {
+      followRef.current = false;
+      setIsFollowing(false);
+    });
 
     map.on("load", async () => {
       // القاعدة Raster من OSM، لذلك أسماء الشوارع تُرسم من السيرفر مباشرة
@@ -237,6 +241,22 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
 
       // ── Source واحد لكل الباصات ─────────────────────────────────────────
       const empty: FC = { type: "FeatureCollection", features: [] };
+      const emptyTrail: LineFC = { type: "FeatureCollection", features: [] };
+      map.addSource("selected-trail", { type: "geojson", data: emptyTrail });
+      map.addLayer({
+        id: "selected-trail-line",
+        type: "line",
+        source: "selected-trail",
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        paint: {
+          "line-color": "#2563eb",
+          "line-opacity": 0.75,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 17, 6],
+        },
+      });
       map.addSource("buses", { type: "geojson", data: empty });
 
       // ── Layer 1: Glow (circle تحت الأيقونة) ─────────────────────────────
@@ -363,7 +383,7 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
         popupRef.current?.remove();
 
         const age = Date.now() - s.lastUpdateMs;
-        const live = age < 15_000 && s.isOnline;
+        const live = Date.now() - s.lastSeenMs < 30_000 && s.isOnline;
         const statusColor = live ? "#10b981" : "#ef4444";
         const statusText  = live ? "متصل" : "غير متصل";
         const timeAgo = age < 60_000
@@ -373,11 +393,11 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
         const html = `
           <div dir="rtl" style="font-family:system-ui,sans-serif;min-width:180px;padding:4px 2px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-              <strong style="font-size:15px;color:#0f172a">باص ${s.busNumber}</strong>
+              <strong style="font-size:15px;color:#0f172a">باص ${escapeHtml(s.busNumber)}</strong>
               <span style="background:${statusColor}20;color:${statusColor};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;border:1px solid ${statusColor}40">${statusText}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:#475569">
-              <div>📍 المنطقة: <strong style="color:#0f172a">${s.district}</strong></div>
+              <div>📍 المنطقة: <strong style="color:#0f172a">${escapeHtml(s.district)}</strong></div>
               <div>🚦 السرعة: <strong style="color:#0f172a">${s.speed != null ? s.speed.toFixed(0) + " كم/س" : "—"}</strong></div>
               <div>⏱ آخر تحديث: <strong style="color:#0f172a">${timeAgo}</strong></div>
             </div>
@@ -428,37 +448,22 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
         // خصائص الباصات — Hermite interpolation + Dead Reckoning
         const features: Feature[] = [];
         stateRef.current.forEach((s, id) => {
-          const timeSinceUpdate = now - s.lastUpdateMs;
-          const live = timeSinceUpdate < 15_000 && s.isOnline;
+          const live = now - s.lastSeenMs < 30_000 && s.isOnline;
 
-          if (live && timeSinceUpdate < DEAD_RECKONING_MAX_MS) {
-            // ── Hermite interpolation مع Dead Reckoning ──
+          if (live) {
+            // نتحرك فقط بين نقطتين مقاستين؛ لا نتنبأ بموقع غير مؤكد.
             const elapsed = now - s.arrivalMs;
             const t = Math.min(1, elapsed / EXPECTED_UPDATE_INTERVAL_MS);
             const h = hermiteInterp(t);
 
-            // حرّك نحو الهدف بـ Hermite (سلس)
-            const interpLng = s.current[0] + (s.target[0] - s.current[0]) * h;
-            const interpLat = s.current[1] + (s.target[1] - s.current[1]) * h;
-
-            if (t >= 0.98) {
-              // وصلنا للهدف — Dead Reckoning لتقدير موقع جديد
-              const drDt = now - s.lastFrameMs;
-              if (drDt > 0 && drDt < 200 && s.speed && s.speed > 2) {
-                const dr = deadReckon([interpLng, interpLat], s.bearing, s.speed, drDt);
-                s.current = dr;
-              } else {
-                s.current = [interpLng, interpLat];
-              }
-            } else {
-              s.current = [interpLng, interpLat];
-            }
+            s.current = [
+              s.prev[0] + (s.target[0] - s.prev[0]) * h,
+              s.prev[1] + (s.target[1] - s.prev[1]) * h,
+            ];
 
             // تنعيم الاتجاه
             s.bearing = lerpAngle(s.bearing, s.targetBearing, 0.08);
           }
-
-          s.lastFrameMs = now;
 
           features.push({
             type: "Feature",
@@ -513,48 +518,76 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
       const id = bus.busId;
       const target: [number, number] = [bus.longitude, bus.latitude];
       const lastMs = new Date(bus.lastUpdate).getTime() || Date.now();
+      const lastSeenMs = new Date(bus.lastSeenAt ?? bus.lastUpdate).getTime() || lastMs;
 
       if (!st.has(id)) {
         st.set(id, {
           current: target,
           target,
           prev: target,
-          bearing: bus.heading ?? 0,
-          targetBearing: bus.heading ?? 0,
+          bearing: normalizeHeading(bus.heading) ?? 0,
+          targetBearing: normalizeHeading(bus.heading) ?? 0,
           isOnline: bus.isOnline,
           lastUpdateMs: lastMs,
-          lastFrameMs: Date.now(),
+          lastSeenMs,
           busNumber: bus.busNumber,
           district: bus.district,
           speed: bus.speed,
+          accuracy: bus.accuracy ?? null,
           arrivalMs: Date.now(),
+          trail: [target],
         });
       } else {
         const s = st.get(id)!;
         const prevTarget = s.target;
-        const dist = Math.abs(target[0] - prevTarget[0]) + Math.abs(target[1] - prevTarget[1]);
+        const distanceMeters = haversineDistanceMeters(
+          prevTarget[1],
+          prevTarget[0],
+          target[1],
+          target[0],
+        );
+        const movementThreshold = movementThresholdMeters(
+          Math.max(s.accuracy ?? 0, bus.accuracy ?? 0),
+        );
 
-        if (dist > 1e-6) {
+        if (distanceMeters >= movementThreshold) {
           // هدف جديد — حرّك current لموقع الـ Hermite الحالي وابدأ interpolation جديد
           s.prev = s.current.slice() as [number, number];
           s.current = s.current.slice() as [number, number]; // تثبيت الموقع الحالي
           s.target = target;
           s.arrivalMs = Date.now();
 
-          try { s.targetBearing = turf.bearing(turf.point(prevTarget), turf.point(target)); }
-          catch { /* صامت */ }
+          s.targetBearing = bearingBetweenPoints(
+            prevTarget[1],
+            prevTarget[0],
+            target[1],
+            target[0],
+          );
+          s.trail.push(target);
+          if (s.trail.length > 80) s.trail.shift();
+
+          if (selectedRef.current === id && followRef.current) {
+            mapRef.current?.easeTo({ center: target, duration: 700 });
+          }
+        } else {
+          const reportedHeading = normalizeHeading(bus.heading);
+          if (reportedHeading !== null && (bus.speed ?? 0) >= 5) {
+            s.targetBearing = reportedHeading;
+          }
         }
 
         s.isOnline = bus.isOnline;
         s.lastUpdateMs = lastMs;
+        s.lastSeenMs = lastSeenMs;
         s.busNumber = bus.busNumber;
         s.district = bus.district;
         s.speed = bus.speed;
+        s.accuracy = bus.accuracy ?? null;
 
         // حدّث الـ popup المفتوح إذا كان هذا هو الباص المختار
         if (popupRef.current?.isOpen() && selectedRef.current === id) {
           const age = Date.now() - s.lastUpdateMs;
-          const live = age < 15_000 && s.isOnline;
+          const live = Date.now() - s.lastSeenMs < 30_000 && s.isOnline;
           const sc = live ? "#10b981" : "#ef4444";
           const st2 = live ? "متصل" : "غير متصل";
           const ta = age < 60_000 ? `منذ ${Math.round(age / 1000)} ث` : `منذ ${Math.round(age / 60_000)} د`;
@@ -562,11 +595,11 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
           popupRef.current.setHTML(`
             <div dir="rtl" style="font-family:system-ui,sans-serif;min-width:180px;padding:4px 2px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                <strong style="font-size:15px;color:#0f172a">باص ${s.busNumber}</strong>
+                <strong style="font-size:15px;color:#0f172a">باص ${escapeHtml(s.busNumber)}</strong>
                 <span style="background:${sc}20;color:${sc};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;border:1px solid ${sc}40">${st2}</span>
               </div>
               <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:#475569">
-                <div>📍 المنطقة: <strong style="color:#0f172a">${s.district}</strong></div>
+                <div>📍 المنطقة: <strong style="color:#0f172a">${escapeHtml(s.district)}</strong></div>
                 <div>🚦 السرعة: <strong style="color:#0f172a">${s.speed != null ? s.speed.toFixed(0) + " كم/س" : "—"}</strong></div>
                 <div>⏱ آخر تحديث: <strong style="color:#0f172a">${ta}</strong></div>
               </div>
@@ -574,6 +607,22 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
         }
       }
     });
+
+    const selectedState = selectedRef.current ? st.get(selectedRef.current) : null;
+    const trailSource = mapRef.current?.getSource("selected-trail") as maplibregl.GeoJSONSource | undefined;
+    if (trailSource) {
+      const trail: LineFC = {
+        type: "FeatureCollection",
+        features: selectedState && selectedState.trail.length >= 2
+          ? [{
+              type: "Feature",
+              properties: {},
+              geometry: { type: "LineString", coordinates: selectedState.trail },
+            }]
+          : [],
+      };
+      trailSource.setData(trail);
+    }
   }, [locations]);
 
   // ── Auto-fit عند أول بيانات حقيقية ─────────────────────────────────────
@@ -605,8 +654,26 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
   // ── Pan عند اختيار باص ───────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !selectedBus) return;
-    const s = stateRef.current.get(selectedBus);
+    if (!map) return;
+    followRef.current = true;
+    setIsFollowing(true);
+
+    const trailSource = map.getSource("selected-trail") as maplibregl.GeoJSONSource | undefined;
+    const s = selectedBus ? stateRef.current.get(selectedBus) : null;
+    if (trailSource) {
+      trailSource.setData({
+        type: "FeatureCollection",
+        features: s && s.trail.length >= 2
+          ? [{
+              type: "Feature",
+              properties: {},
+              geometry: { type: "LineString", coordinates: s.trail },
+            }]
+          : [],
+      });
+    }
+
+    if (!selectedBus) return;
     if (!s) return;
     map.easeTo({
       center: s.current,
@@ -615,11 +682,33 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
     });
   }, [selectedBus]);
 
+  const resumeFollowing = () => {
+    followRef.current = true;
+    setIsFollowing(true);
+    const selected = selectedRef.current;
+    const state = selected ? stateRef.current.get(selected) : null;
+    if (state) mapRef.current?.easeTo({ center: state.current, zoom: Math.max(mapRef.current.getZoom(), 15), duration: 600 });
+  };
+
   return (
-    <div
-      ref={mapDivRef}
-      className="w-full rounded-xl overflow-hidden"
-      style={{ height: "500px" }}
-    />
+    <div className="relative h-[58vh] min-h-90 max-h-155 w-full overflow-hidden rounded-lg md:h-125">
+      <div ref={mapDivRef} className="h-full w-full" />
+      {selectedBus && (
+        <button
+          type="button"
+          onClick={resumeFollowing}
+          className={`absolute bottom-8 right-3 inline-flex h-11 w-11 items-center justify-center rounded-lg border bg-white shadow-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-slate-900 ${
+            isFollowing
+              ? "border-blue-500 text-blue-600 dark:text-blue-400"
+              : "border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300"
+          }`}
+          aria-label={isFollowing ? "متابعة الحافلة مفعلة" : "متابعة الحافلة على الخريطة"}
+          aria-pressed={isFollowing}
+          title={isFollowing ? "متابعة الحافلة مفعلة" : "متابعة الحافلة"}
+        >
+          <Crosshair className="h-5 w-5" />
+        </button>
+      )}
+    </div>
   );
 }

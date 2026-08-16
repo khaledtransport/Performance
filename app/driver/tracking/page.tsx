@@ -14,6 +14,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import {
+  bearingBetweenPoints,
+  haversineDistanceMeters,
+  movementThresholdMeters,
+  normalizeHeading,
+  headingLabel,
+} from "@/lib/tracking-geo";
+import {
   Navigation,
   MapPin,
   Power,
@@ -46,8 +53,10 @@ interface FullPosition {
   lat: number;
   lng: number;
   speed: number | null;
+  speedKmh: number;
   heading: number | null;
   accuracy: number | null;
+  recordedAt: number;
 }
 
 function classifyGpsAccuracy(acc: number | null): "excellent" | "good" | "poor" | "cell-tower" | "unknown" {
@@ -106,16 +115,6 @@ class KalmanFilter1D {
   }
 }
 
-// حساب المسافة بين نقطتين باستخدام صيغة Haversine (بالمتر)
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000; // نصف قطر الأرض بالمتر
-  const toRad = (x: number) => (x * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 export default function DriverTrackingPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -137,12 +136,13 @@ export default function DriverTrackingPage() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [sendCount, setSendCount] = useState(0);
+  const [queuedCount, setQueuedCount] = useState(0);
   const [totalDistance, setTotalDistance] = useState(0); // المسافة الكلية بالمتر
   const [calculatedSpeed, setCalculatedSpeed] = useState<number | null>(null); // سرعة محسوبة كم/س
   const [permissionStatus, setPermissionStatus] = useState<string>("checking");
   // "checking" | "granted" | "denied" | "prompt" | "unsupported"
   const [gpsQuality, setGpsQuality] = useState<"excellent" | "good" | "poor" | "cell-tower" | "unknown">("unknown");
-  // excellent: <20m, good: <100m, poor: <300m, cell-tower: >=300m
+  // excellent: <=20m, good: <=100m, poor: <150m, cell-tower: >=150m
 
   // المراجع
   const watchIdRef = useRef<number | null>(null);
@@ -150,8 +150,9 @@ export default function DriverTrackingPage() {
   const firstPositionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPositionRef = useRef<FullPosition | null>(null);
   const bestPositionRef = useRef<FullPosition | null>(null);
-  const prevGpsPositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+  const prevGpsPositionRef = useRef<{ lat: number; lng: number; time: number; accuracy: number } | null>(null);
   const calculatedSpeedRef = useRef<number | null>(null);
+  const stableHeadingRef = useRef<number | null>(null);
   const kalmanLatRef = useRef(new KalmanFilter1D(0.5, 3));
   const kalmanLngRef = useRef(new KalmanFilter1D(0.5, 3));
   const isTrackingRef = useRef(false);
@@ -161,8 +162,10 @@ export default function DriverTrackingPage() {
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const lastSentAtRef = useRef(0);
   const lastSentPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const isFlushingQueueRef = useRef(false);
 
   const getPendingStopKey = useCallback((busId: string) => `tracking_pending_stop:${busId}`, []);
+  const getLocationQueueKey = useCallback((busId: string) => `tracking_location_queue:v1:${busId}`, []);
   const TRACKING_ACTIVE_BUS_KEY = "tracking_active_bus_id";
 
   useEffect(() => {
@@ -312,62 +315,115 @@ export default function DriverTrackingPage() {
     return classifyGpsAccuracy(acc);
   }, []);
 
-  // إرسال الموقع إلى الخادم — يرسل أفضل موقع GPS متاح
-  const sendLocation = useCallback(
-    async (pos: FullPosition) => {
-      if (!selectedBusId) return;
+  const readLocationQueue = useCallback((busId: string): FullPosition[] => {
+    if (typeof window === "undefined") return [];
+    try {
+      const value = JSON.parse(localStorage.getItem(getLocationQueueKey(busId)) ?? "[]");
+      if (!Array.isArray(value)) return [];
+      return value.filter((item): item is FullPosition =>
+        typeof item?.lat === "number" &&
+        typeof item?.lng === "number" &&
+        typeof item?.speedKmh === "number" &&
+        typeof item?.recordedAt === "number"
+      );
+    } catch {
+      return [];
+    }
+  }, [getLocationQueueKey]);
 
-      // إذا كان الموقع من برج خلوي (دقة >= 300م) ويوجد موقع GPS أفضل سابق، أرسل الأفضل
-      const quality = classifyGpsQuality(pos.accuracy);
-      let posToSend = pos;
+  const writeLocationQueue = useCallback((busId: string, points: FullPosition[]) => {
+    if (typeof window === "undefined") return;
+    const recentPoints = points
+      .filter((point) => Date.now() - point.recordedAt <= 30 * 60 * 1000)
+      .slice(-120);
+    try {
+      localStorage.setItem(getLocationQueueKey(busId), JSON.stringify(recentPoints));
+      setQueuedCount(recentPoints.length);
+    } catch {
+      setGpsError("تعذر حفظ نقاط التتبع محلياً. تأكد من توفر مساحة تخزين في المتصفح.");
+    }
+  }, [getLocationQueueKey]);
 
-      if (quality === "cell-tower" && bestPositionRef.current) {
-        // أرسل آخر موقع GPS دقيق للإحداثيات، لكن احتفظ باتجاه الجوال الحالي (مهم عند اليوترن)
-        posToSend = {
-          ...bestPositionRef.current,
-          heading: pos.heading ?? bestPositionRef.current.heading,
-          speed: pos.speed ?? bestPositionRef.current.speed,
-        };
-      }
+  const enqueueLocation = useCallback((busId: string, pos: FullPosition) => {
+    const queued = readLocationQueue(busId);
+    if (!queued.some((point) => point.recordedAt === pos.recordedAt)) queued.push(pos);
+    writeLocationQueue(busId, queued);
+  }, [readLocationQueue, writeLocationQueue]);
 
-      // إذا كان الموقع دقيقاً (< 300م)، احفظه كأفضل موقع
-      if (quality !== "cell-tower" && quality !== "unknown") {
-        bestPositionRef.current = pos;
-      }
-
+  const postLocation = useCallback(
+    async (busId: string, pos: FullPosition): Promise<"sent" | "discard" | "retry"> => {
       try {
         const res = await fetch("/Performance/api/tracking", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            busId: selectedBusId,
-            latitude: posToSend.lat,
-            longitude: posToSend.lng,
-            speed: calculatedSpeedRef.current !== null
-              ? calculatedSpeedRef.current.toFixed(1)
-              : posToSend.speed !== null
-                ? (posToSend.speed * 3.6).toFixed(1)
-                : "0",
-            heading: posToSend.heading !== null ? posToSend.heading.toFixed(0) : null,
-            accuracy: posToSend.accuracy !== null ? posToSend.accuracy.toFixed(0) : null,
+            busId,
+            latitude: pos.lat,
+            longitude: pos.lng,
+            speed: pos.speedKmh.toFixed(1),
+            heading: pos.heading !== null ? pos.heading.toFixed(0) : null,
+            accuracy: pos.accuracy !== null ? pos.accuracy.toFixed(0) : null,
+            recordedAt: new Date(pos.recordedAt).toISOString(),
           }),
         });
 
         if (res.ok) {
+          const result = await res.json().catch(() => null);
+          if (result?.accepted === false) {
+            if (result.warning === "low_accuracy") {
+              setGpsError(`لم تُعتمد النقطة لأن دقتها منخفضة (±${Math.round(result.accuracy)} م). انقل الهاتف قرب الزجاج وفعّل الموقع الدقيق.`);
+            }
+            return "discard";
+          }
           setSendCount((prev) => prev + 1);
           setLastUpdate(new Date());
+          return "sent";
         } else {
           const text = await res.text().catch(() => "");
           let errData: unknown = {};
           try { errData = JSON.parse(text); } catch { errData = { raw: text.slice(0, 200) }; }
           console.error(`Failed to send location [${res.status}]:`, errData);
+          return res.status >= 500 || res.status === 408 || res.status === 429 ? "retry" : "discard";
         }
       } catch (error) {
         console.error("Send location error:", error);
+        return "retry";
       }
     },
-    [selectedBusId, classifyGpsQuality]
+    []
   );
+
+  const sendLocation = useCallback(async (pos: FullPosition) => {
+    if (!selectedBusId) return;
+
+    const quality = classifyGpsQuality(pos.accuracy);
+    if (quality !== "cell-tower" && quality !== "unknown") bestPositionRef.current = pos;
+
+    if (navigator.onLine === false) {
+      enqueueLocation(selectedBusId, pos);
+      return;
+    }
+
+    const result = await postLocation(selectedBusId, pos);
+    if (result === "retry") enqueueLocation(selectedBusId, pos);
+  }, [selectedBusId, classifyGpsQuality, enqueueLocation, postLocation]);
+
+  const flushLocationQueue = useCallback(async (busId: string) => {
+    if (!busId || isFlushingQueueRef.current || navigator.onLine === false) return;
+    isFlushingQueueRef.current = true;
+    try {
+      const queued = readLocationQueue(busId).sort((a, b) => a.recordedAt - b.recordedAt);
+      let processed = 0;
+      for (const point of queued) {
+        const result = await postLocation(busId, point);
+        if (result === "retry") break;
+        processed += 1;
+      }
+      writeLocationQueue(busId, queued.slice(processed));
+    } finally {
+      isFlushingQueueRef.current = false;
+    }
+  }, [postLocation, readLocationQueue, writeLocationQueue]);
 
   const setTrackingStatus = useCallback(
     async (action: "start" | "stop") => {
@@ -475,6 +531,7 @@ export default function DriverTrackingPage() {
     prevGpsPositionRef.current = null;
     kalmanLatRef.current.reset();
     kalmanLngRef.current.reset();
+    stableHeadingRef.current = null;
     lastSentAtRef.current = 0;
     lastSentPosRef.current = null;
     void setTrackingStatus("start");
@@ -486,7 +543,7 @@ export default function DriverTrackingPage() {
 
     toast({
       title: "تم بدء التتبع ✅",
-      description: "يتم إرسال موقعك كل 5 ثوانٍ",
+      description: "يتم التحديث كل 3 ثوانٍ أثناء الحركة مع نبضة اتصال عند الوقوف",
     });
 
     // مراقبة الموقع باستمرار مع أقصى دقة + فلتر كالمن
@@ -494,7 +551,7 @@ export default function DriverTrackingPage() {
       const rawLat = position.coords.latitude;
       const rawLng = position.coords.longitude;
       const spd = position.coords.speed;
-      const hdg = position.coords.heading;
+      const reportedHeading = normalizeHeading(position.coords.heading);
       const acc = position.coords.accuracy;
 
       // تصنيف جودة GPS
@@ -511,45 +568,75 @@ export default function DriverTrackingPage() {
         lng = rawLng;
       }
 
+      const now = Date.now();
+      const previous = prevGpsPositionRef.current;
+      let movementMeters = 0;
+      let movementSpeedKmh: number | null = null;
+      let stableHeading = stableHeadingRef.current;
+
+      if (previous && quality !== "cell-tower" && quality !== "unknown") {
+        movementMeters = haversineDistanceMeters(previous.lat, previous.lng, lat, lng);
+        const elapsedSeconds = (now - previous.time) / 1000;
+        const threshold = movementThresholdMeters(Math.max(previous.accuracy, acc));
+
+        if (elapsedSeconds >= 0.75 && elapsedSeconds <= 30 && movementMeters >= threshold) {
+          const candidateSpeed = (movementMeters / elapsedSeconds) * 3.6;
+          if (candidateSpeed <= 160) {
+            movementSpeedKmh = candidateSpeed;
+            stableHeading = bearingBetweenPoints(previous.lat, previous.lng, lat, lng);
+            stableHeadingRef.current = stableHeading;
+            setTotalDistance((distance) => distance + movementMeters);
+            setCalculatedSpeed(candidateSpeed);
+            calculatedSpeedRef.current = candidateSpeed;
+            prevGpsPositionRef.current = { lat, lng, time: now, accuracy: acc };
+          }
+        } else if (elapsedSeconds > 10) {
+          prevGpsPositionRef.current = { lat, lng, time: now, accuracy: acc };
+        }
+      } else if (quality !== "cell-tower" && quality !== "unknown") {
+        prevGpsPositionRef.current = { lat, lng, time: now, accuracy: acc };
+      }
+
+      const nativeSpeedKmh = spd != null && Number.isFinite(spd) ? spd * 3.6 : null;
+      if (movementSpeedKmh === null && reportedHeading !== null && (nativeSpeedKmh ?? 0) >= 5) {
+        stableHeading = reportedHeading;
+        stableHeadingRef.current = reportedHeading;
+      }
+
+      const stationaryThreshold = movementThresholdMeters(acc);
+      if ((nativeSpeedKmh ?? 0) < 2 && movementMeters < stationaryThreshold) {
+        setCalculatedSpeed(0);
+        calculatedSpeedRef.current = 0;
+      }
+
       // تحديث واجهة المستخدم دائماً
       setLatitude(lat);
       setLongitude(lng);
       setSpeed(spd);
-      setHeading(hdg);
+      setHeading(stableHeading);
       setAccuracy(acc);
       setGpsError(null);
       setPermissionStatus("granted");
 
-      // حساب المسافة والسرعة من تغير الموقع (فقط إذا الدقة جيدة < 150م)
-      if (quality !== "cell-tower" && quality !== "unknown") {
-        const now = Date.now();
-        const prev = prevGpsPositionRef.current;
-        if (prev) {
-          const dist = haversineDistance(prev.lat, prev.lng, lat, lng);
-          const timeDiffSec = (now - prev.time) / 1000;
-          // تجاهل القفزات الكبيرة (خطأ GPS) أو الصغيرة جداً (ضجيج)
-          if (dist >= 2 && dist < 500 && timeDiffSec > 0.5) {
-            setTotalDistance(d => d + dist);
-            const spdCalc = (dist / timeDiffSec) * 3.6;
-            if (spdCalc < 200) {
-              setCalculatedSpeed(spdCalc);
-              calculatedSpeedRef.current = spdCalc;
-            }
-          }
-        }
-        prevGpsPositionRef.current = { lat, lng, time: now };
-      }
       setGpsQuality(quality);
 
       // حفظ كامل البيانات في المرجع (بعد كالمن)
-      const fullPos: FullPosition = { lat, lng, speed: spd, heading: hdg, accuracy: acc };
+      const fullPos: FullPosition = {
+        lat,
+        lng,
+        speed: spd,
+        speedKmh: movementSpeedKmh ?? nativeSpeedKmh ?? calculatedSpeedRef.current ?? 0,
+        heading: stableHeading,
+        accuracy: acc,
+        recordedAt: position.timestamp || now,
+      };
       lastPositionRef.current = fullPos;
 
       // إرسال ذكي: كل 3 ثوانٍ أو إذا تحرك >= 8 أمتار
       const nowMs = Date.now();
       const lastSentPos = lastSentPosRef.current;
       const movedMeters = lastSentPos
-        ? haversineDistance(lastSentPos.lat, lastSentPos.lng, lat, lng)
+        ? haversineDistanceMeters(lastSentPos.lat, lastSentPos.lng, lat, lng)
         : Number.POSITIVE_INFINITY;
       // لا ترسل إذا الحركة أقل من 3 أمتار والسرعة ≈ 0 (ثابت)
       const isStationary = movedMeters < 3 && (spd === null || spd < 0.5);
@@ -615,7 +702,7 @@ export default function DriverTrackingPage() {
     firstPositionTimeoutRef.current = setTimeout(() => {
       const pos = lastPositionRef.current;
       if (pos) {
-        sendLocation(pos);
+        sendLocation({ ...pos, recordedAt: Date.now() });
       }
     }, 3000);
   }, [selectedBusId, sendLocation, toast, permissionStatus, setTrackingStatus, getPendingStopKey, classifyGpsQuality]);
@@ -642,6 +729,7 @@ export default function DriverTrackingPage() {
     bestPositionRef.current = null;
     prevGpsPositionRef.current = null;
     calculatedSpeedRef.current = null;
+    stableHeadingRef.current = null;
     kalmanLatRef.current.reset();
     kalmanLngRef.current.reset();
     lastSentAtRef.current = 0;
@@ -677,7 +765,7 @@ export default function DriverTrackingPage() {
         void acquireWakeLock();
         const pos = lastPositionRef.current;
         if (pos) {
-          void sendLocation(pos);
+          void sendLocation({ ...pos, recordedAt: Date.now() });
           lastSentAtRef.current = Date.now();
           lastSentPosRef.current = { lat: pos.lat, lng: pos.lng };
         }
@@ -702,13 +790,14 @@ export default function DriverTrackingPage() {
       });
     };
 
-    const handleOnline = () => {
+    const handleOnline = async () => {
       const activeBusId = selectedBusIdRef.current;
       if (activeBusId) {
-        void flushPendingStop(activeBusId);
+        await flushPendingStop(activeBusId);
+        await flushLocationQueue(activeBusId);
       }
       if (isTrackingRef.current && lastPositionRef.current) {
-        void sendLocation(lastPositionRef.current);
+        void sendLocation({ ...lastPositionRef.current, recordedAt: Date.now() });
       }
     };
 
@@ -719,7 +808,16 @@ export default function DriverTrackingPage() {
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("online", handleOnline);
     };
-  }, [flushPendingStop, sendLocation, toast]);
+  }, [flushLocationQueue, flushPendingStop, sendLocation, toast]);
+
+  useEffect(() => {
+    if (!selectedBusId) {
+      setQueuedCount(0);
+      return;
+    }
+    setQueuedCount(readLocationQueue(selectedBusId).length);
+    if (navigator.onLine) void flushLocationQueue(selectedBusId);
+  }, [selectedBusId, flushLocationQueue, readLocationQueue]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -813,7 +911,7 @@ export default function DriverTrackingPage() {
         setAccuracy(position.coords.accuracy);
         setGpsQuality(classifyGpsQuality(position.coords.accuracy));
 
-        if (position.coords.accuracy >= 300) {
+        if (position.coords.accuracy >= 150) {
           setGpsError("تم منح إذن الموقع لكن الدقة ما زالت منخفضة (موقع تقريبي). فعّل 'الموقع الدقيق' من إعدادات الهاتف للحصول على دقة أعلى.");
         }
         toast({ title: "تم السماح بالموقع ✅", description: "يمكنك الآن بدء التتبع" });
@@ -855,17 +953,17 @@ export default function DriverTrackingPage() {
   const activeBus = assignedBus || availableBuses.find((b) => b.id === selectedBusId);
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 p-4 md:p-6" dir="rtl">
-      <div className="max-w-2xl mx-auto space-y-4">
+    <div className="min-h-screen bg-slate-50 p-3 pb-24 dark:bg-slate-950 sm:p-4 md:p-6" dir="rtl">
+      <div className="mx-auto max-w-2xl space-y-4">
         {/* العنوان */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/50 px-4 py-2 rounded-full mb-3">
+        <div className="mb-4 text-center md:mb-6">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-lg bg-blue-100 px-3 py-2 dark:bg-blue-900/50">
             <Navigation className="w-5 h-5 text-blue-600" />
             <span className="text-blue-700 dark:text-blue-300 font-bold text-sm">
               وضع السائق
             </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white md:text-2xl">
             تتبع الموقع المباشر
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
@@ -883,15 +981,15 @@ export default function DriverTrackingPage() {
           </CardHeader>
           <CardContent>
             {assignedBus ? (
-              <div className="flex items-center gap-3 bg-green-50 dark:bg-green-900/30 p-3 rounded-lg">
-                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
+              <div className="flex items-center gap-3 rounded-lg bg-green-50 p-3 dark:bg-green-900/30">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-green-600">
                   <Bus className="w-7 h-7 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-bold text-lg">باص {assignedBus.busNumber}</p>
-                  <p className="text-sm text-gray-500">{assignedBus.district}</p>
+                  <p className="truncate text-sm text-gray-500">{assignedBus.district}</p>
                 </div>
-                <Badge variant="outline" className="mr-auto bg-green-100 text-green-700 border-green-300">
+                <Badge variant="outline" className="shrink-0 border-green-300 bg-green-100 text-green-700">
                   مخصص لك
                 </Badge>
               </div>
@@ -931,7 +1029,7 @@ export default function DriverTrackingPage() {
             : "border-amber-300 bg-amber-50/50 dark:bg-amber-900/20"
         }`}>
           <CardContent className="pt-5 pb-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                   permissionStatus === "granted" ? "bg-green-100 dark:bg-green-900" :
@@ -1063,14 +1161,14 @@ export default function DriverTrackingPage() {
         </Card>
 
         {/* زر التحكم */}
-        <Card className={`border-2 transition-colors ${isTracking ? "border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-900/20" : "border-gray-200 dark:border-gray-700"}`}>
+        <Card className={`sticky bottom-3 z-20 border shadow-lg transition-colors ${isTracking ? "border-green-400 bg-green-50 dark:border-green-600 dark:bg-green-900/30" : "border-gray-200 bg-white dark:border-gray-700 dark:bg-slate-900"}`}>
           <CardContent className="pt-6">
             <Button
               size="lg"
-              className={`w-full h-16 text-lg font-bold rounded-xl transition-all ${
+              className={`h-16 w-full rounded-lg text-lg font-bold transition-colors ${
                 isTracking
-                  ? "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-200"
-                  : "bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-200"
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-green-600 text-white hover:bg-green-700"
               }`}
               onClick={isTracking ? stopTracking : startTracking}
               disabled={!selectedBusId}
@@ -1164,14 +1262,14 @@ export default function DriverTrackingPage() {
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
                   <Compass className="w-5 h-5 mx-auto text-orange-500 mb-1" />
                   <p className="text-xs text-gray-500">الاتجاه</p>
-                  <p className="font-mono font-bold text-sm">
-                    {heading !== null ? `${heading.toFixed(0)}°` : "—"}
+                  <p className="font-bold text-sm">
+                    {heading !== null ? `${headingLabel(heading)} ${heading.toFixed(0)}°` : "غير محدد"}
                   </p>
                 </div>
               </div>
 
               {/* إحصائيات الإرسال */}
-              <div className="mt-4 flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 rounded-lg p-3">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-blue-50 p-3 dark:bg-blue-900/30">
                 <div className="flex items-center gap-2">
                   {isTracking ? (
                     <Wifi className="w-4 h-4 text-green-500" />
@@ -1190,6 +1288,12 @@ export default function DriverTrackingPage() {
                       : "لم يتم الإرسال بعد"}
                   </span>
                 </div>
+                {queuedCount > 0 && (
+                  <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                    <WifiOff className="h-4 w-4" />
+                    محفوظ محلياً: {queuedCount}
+                  </div>
+                )}
               </div>
 
               {accuracy !== null && (
@@ -1227,7 +1331,7 @@ export default function DriverTrackingPage() {
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
                         دقة: ±{accuracy.toFixed(0)} متر
-                        {gpsQuality === 'cell-tower' && bestPositionRef.current && ' (يُرسل آخر موقع GPS دقيق)'}
+                        {gpsQuality === 'cell-tower' && bestPositionRef.current && ' (تحتفظ الخريطة بآخر موقع دقيق)'}
                       </p>
                     </div>
                   </div>

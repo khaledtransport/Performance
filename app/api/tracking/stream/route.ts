@@ -61,22 +61,22 @@ async function loadBusLocations() {
   const now = Date.now();
   const activeThreshold = new Date(now - 30 * 1000);
 
-  const [activeSessions, buses] = await Promise.all([
+  const [activeSessions, buses, latestTPRaw] = await Promise.all([
     prisma.trackingSession.findMany({
       where: { status: "ACTIVE", endedAt: null, lastPointAt: { gte: activeThreshold } },
-      select: { busId: true },
+      select: { busId: true, lastPointAt: true },
     }),
     getActiveBuses(),
+    prisma.$queryRaw<LatestPoint[]>`
+      SELECT DISTINCT ON (bus_id) bus_id, latitude, longitude, speed, heading, accuracy, timestamp
+      FROM tracking_points
+      ORDER BY bus_id, timestamp DESC
+    `,
   ]);
 
   const activeBusSet = new Set(activeSessions.map((s) => s.busId));
+  const activeSessionMap = new Map(activeSessions.map((s) => [s.busId, s.lastPointAt]));
 
-  // أحدث نقطة لكل باص (DISTINCT ON — استعلام واحد)
-  const latestTPRaw = await prisma.$queryRaw<LatestPoint[]>`
-    SELECT DISTINCT ON (bus_id) bus_id, latitude, longitude, speed, heading, accuracy, timestamp
-    FROM tracking_points
-    ORDER BY bus_id, timestamp DESC
-  `;
   const latestTP = new Map(latestTPRaw.map((p) => [p.bus_id, p]));
 
   // Fallback للبيانات القديمة (BusLocation)
@@ -106,9 +106,10 @@ async function loadBusLocations() {
       heading: tp?.heading ?? null,
       accuracy: tp?.accuracy ?? null,
       lastUpdate: tp?.timestamp ?? bus.createdAt,
+      lastSeenAt: activeSessionMap.get(bus.id) ?? tp?.timestamp ?? bus.createdAt,
       isOnline: activeBusSet.has(bus.id),
       hasLocation: tp !== null,
-      isCellTower: tp?.accuracy != null && (tp.accuracy as number) >= 300,
+      isCellTower: tp?.accuracy != null && (tp.accuracy as number) >= 150,
     };
   });
 }

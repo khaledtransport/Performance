@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { apiCache } from "@/lib/cache";
 import { requireApiRole } from "@/lib/api-auth";
 import { TRACKING_VIEW_ROLES, UserRole } from "@/lib/rbac";
+import {
+  bearingBetweenPoints,
+  haversineDistanceMeters,
+  movementThresholdMeters,
+  normalizeHeading,
+} from "@/lib/tracking-geo";
 import { z } from "zod";
 
 // مخطط Zod للتحقق من مدخلات POST
@@ -13,6 +19,7 @@ const TrackingPostSchema = z.object({
   speed: z.coerce.number().min(0).max(300).optional().nullable(),
   heading: z.coerce.number().min(0).max(360).optional().nullable(),
   accuracy: z.coerce.number().min(0).max(50000).optional().nullable(),
+  recordedAt: z.coerce.date().optional(),
 });
 
 // مخطط Zod لـ PATCH
@@ -132,20 +139,7 @@ export async function GET(request: Request) {
     const now = Date.now();
     const activeSessionThreshold = new Date(now - 30 * 1000); // 30 ثانية لعرض أسرع لحالة الاتصال
     let activeBusSet = new Set<string>();
-
-    try {
-      const activeSessions = await prisma.trackingSession.findMany({
-        where: {
-          status: "ACTIVE",
-          endedAt: null,
-          lastPointAt: { gte: activeSessionThreshold },
-        },
-        select: { busId: true },
-      });
-      activeBusSet = new Set(activeSessions.map((s) => s.busId));
-    } catch (activeError) {
-      console.error("Tracking GET active sessions fallback:", activeError);
-    }
+    let activeSessionMap = new Map<string, Date>();
 
     let busLocations: Array<{
       busId: string;
@@ -157,27 +151,41 @@ export async function GET(request: Request) {
       heading: number | null;
       accuracy: number | null;
       lastUpdate: Date;
+      lastSeenAt: Date;
       isOnline: boolean;
       hasLocation: boolean;
       isCellTower: boolean;
     }>;
 
     try {
-      // آخر نقطة لكل باص باستخدام DISTINCT ON (PostgreSQL) — استعلام واحد فقط
-      const buses = await prisma.bus.findMany({
-        where: { isActive: true },
-        include: {
-          districts: { include: { district: true } },
-        },
-        orderBy: { busNumber: "asc" },
-      });
-
-      // آخر نقطة من TrackingPoint لكل باص — استعلام واحد
-      const latestTPRaw = await prisma.$queryRaw<LatestPoint[]>`
-        SELECT DISTINCT ON (bus_id) bus_id, latitude, longitude, speed, heading, accuracy, timestamp
-        FROM tracking_points
-        ORDER BY bus_id, timestamp DESC
-      `;
+      // الاستعلامات مستقلة؛ تنفيذها بالتوازي يقلل زمن أول تحميل مع قواعد البيانات البعيدة.
+      const [activeSessions, buses, latestTPRaw] = await Promise.all([
+        prisma.trackingSession.findMany({
+          where: {
+            status: "ACTIVE",
+            endedAt: null,
+            lastPointAt: { gte: activeSessionThreshold },
+          },
+          select: { busId: true, lastPointAt: true },
+        }).catch((activeError) => {
+          console.error("Tracking GET active sessions fallback:", activeError);
+          return [];
+        }),
+        prisma.bus.findMany({
+          where: { isActive: true },
+          include: {
+            districts: { include: { district: true } },
+          },
+          orderBy: { busNumber: "asc" },
+        }),
+        prisma.$queryRaw<LatestPoint[]>`
+          SELECT DISTINCT ON (bus_id) bus_id, latitude, longitude, speed, heading, accuracy, timestamp
+          FROM tracking_points
+          ORDER BY bus_id, timestamp DESC
+        `,
+      ]);
+      activeBusSet = new Set(activeSessions.map((s) => s.busId));
+      activeSessionMap = new Map(activeSessions.map((s) => [s.busId, s.lastPointAt]));
       const latestTP = new Map(latestTPRaw.map((p) => [p.bus_id, p]));
 
       // للباصات بدون TrackingPoint — fallback لـ BusLocation (legacy data)
@@ -210,9 +218,10 @@ export async function GET(request: Request) {
           heading: tp?.heading ?? null,
           accuracy: tp?.accuracy ?? null,
           lastUpdate: tp?.timestamp ?? bus.createdAt,
+          lastSeenAt: activeSessionMap.get(bus.id) ?? tp?.timestamp ?? bus.createdAt,
           isOnline: activeBusSet.has(bus.id),
           hasLocation,
-          isCellTower: tp?.accuracy != null && tp.accuracy >= 300,
+          isCellTower: tp?.accuracy != null && tp.accuracy >= 150,
         };
       });
     } catch (busesError) {
@@ -233,6 +242,7 @@ export async function GET(request: Request) {
         heading: null,
         accuracy: null,
         lastUpdate: bus.createdAt,
+        lastSeenAt: activeSessionMap.get(bus.id) ?? bus.createdAt,
         isOnline: activeBusSet.has(bus.id),
         hasLocation: false,
         isCellTower: false,
@@ -450,7 +460,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { busId, latitude, longitude, speed, heading, accuracy } = parsed.data;
+    const { busId, latitude, longitude, speed, heading, accuracy, recordedAt } = parsed.data;
     const auth = await requireTrackingWriteAccess(busId);
     if (auth.response) return auth.response;
 
@@ -465,40 +475,58 @@ export async function POST(request: Request) {
 
     const parsedLatitude = latitude;
     const parsedLongitude = longitude;
-    const parsedSpeed = speed ?? 0;
-    const parsedHeading =
-      heading !== undefined && heading !== null && Number.isFinite(heading)
-        ? ((heading % 360) + 360) % 360
-        : null;
+    let parsedSpeed = speed ?? 0;
+    let parsedHeading = normalizeHeading(heading);
     const parsedAccuracy = accuracy ?? null;
+    const receivedAt = new Date();
+    const pointTimestamp = recordedAt ?? receivedAt;
+    const pointAgeMs = receivedAt.getTime() - pointTimestamp.getTime();
+
+    // نسمح بإعادة إرسال نقاط انقطاع الشبكة لمدة 30 دقيقة فقط، ونرفض الوقت المستقبلي.
+    if (pointAgeMs < -60_000 || pointAgeMs > 30 * 60 * 1000) {
+      return NextResponse.json(
+        { error: "وقت نقطة التتبع خارج النطاق المسموح" },
+        { status: 400 }
+      );
+    }
 
     // ── رفض النقاط الشاذة (Outlier Rejection) ─────────────────────────
     // مقارنة النقطة الجديدة بآخر نقطة محفوظة — رفض القفزات المستحيلة
-    if (parsedAccuracy !== null && parsedAccuracy > 200) {
-      // دقة أسوأ من 200 متر — لا تُحفظ (تشوّش الخريطة)
+    if (parsedAccuracy !== null && parsedAccuracy >= 150) {
+      // نحافظ على نبضة الاتصال، لكن لا نخلط نقطة تقريبية مع مسار GPS الدقيق.
+      await prisma.trackingSession.updateMany({
+        where: { busId, status: "ACTIVE", endedAt: null },
+        data: { lastPointAt: new Date() },
+      });
+      apiCache.delete("tracking:all");
       return NextResponse.json(
-        { warning: "low_accuracy", accuracy: parsedAccuracy },
+        { accepted: false, warning: "low_accuracy", accuracy: parsedAccuracy },
         { status: 200 }
       );
     }
 
     try {
       const lastPoint = await prisma.trackingPoint.findFirst({
-        where: { busId },
+        where: { busId, timestamp: { lt: pointTimestamp } },
         orderBy: { timestamp: "desc" },
-        select: { latitude: true, longitude: true, timestamp: true },
+        select: {
+          latitude: true,
+          longitude: true,
+          speed: true,
+          heading: true,
+          accuracy: true,
+          timestamp: true,
+        },
       });
 
       if (lastPoint) {
-        const dLat = parsedLatitude - lastPoint.latitude;
-        const dLng = parsedLongitude - lastPoint.longitude;
-        const R = 6371000;
-        const latRad = parsedLatitude * Math.PI / 180;
-        const distMeters = Math.sqrt(
-          (dLat * Math.PI / 180 * R) ** 2 +
-          (dLng * Math.PI / 180 * R * Math.cos(latRad)) ** 2
+        const distMeters = haversineDistanceMeters(
+          lastPoint.latitude,
+          lastPoint.longitude,
+          parsedLatitude,
+          parsedLongitude,
         );
-        const dtSec = (Date.now() - new Date(lastPoint.timestamp).getTime()) / 1000;
+        const dtSec = (pointTimestamp.getTime() - new Date(lastPoint.timestamp).getTime()) / 1000;
 
         // الحد الأقصى: 150 كم/س (42 م/ث) — أي نقطة تتجاوز ذلك مرفوضة
         const maxSpeedMs = 42;
@@ -508,9 +536,28 @@ export async function POST(request: Request) {
           // قفزة مستحيلة — ارفضها
           console.warn(`Outlier rejected: bus=${busId} dist=${distMeters.toFixed(0)}m dt=${dtSec.toFixed(0)}s`);
           return NextResponse.json(
-            { warning: "outlier_rejected", distance: distMeters, dt: dtSec },
+            { accepted: false, warning: "outlier_rejected", distance: distMeters, dt: dtSec },
             { status: 200 }
           );
+        }
+
+        const directionThreshold = movementThresholdMeters(
+          Math.max(parsedAccuracy ?? 0, lastPoint.accuracy ?? 0),
+        );
+        if (dtSec >= 0.75 && dtSec <= 30 && distMeters >= directionThreshold) {
+          const measuredSpeed = (distMeters / dtSec) * 3.6;
+          if (measuredSpeed <= 160) {
+            parsedHeading = bearingBetweenPoints(
+              lastPoint.latitude,
+              lastPoint.longitude,
+              parsedLatitude,
+              parsedLongitude,
+            );
+            if (parsedSpeed < 2) parsedSpeed = measuredSpeed;
+          }
+        } else if (parsedSpeed < 2) {
+          parsedSpeed = 0;
+          parsedHeading = lastPoint.heading ?? parsedHeading;
         }
       }
     } catch {
@@ -578,6 +625,7 @@ export async function POST(request: Request) {
           speed: parsedSpeed,
           heading: parsedHeading,
           accuracy: parsedAccuracy,
+          timestamp: pointTimestamp,
           source: "DRIVER_APP",
         },
       });
