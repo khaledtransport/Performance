@@ -126,6 +126,14 @@ function lerpAngle(from: number, to: number, t: number): number {
 // الوقت المتوقع بين التحديثات (لحساب نسبة t في Hermite)
 const EXPECTED_UPDATE_INTERVAL_MS = 3500;
 
+function getCartoTiles(dark: boolean): string[] {
+  const style = dark ? "dark_all" : "light_all";
+  return ["a", "b", "c", "d"].map(
+    (subdomain) =>
+      `https://${subdomain}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}.png`,
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,6 +158,8 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
   useEffect(() => {
     if (!mapDivRef.current || mapRef.current) return;
 
+    const isDark = document.documentElement.classList.contains("dark");
+
     const map = new maplibregl.Map({
       container: mapDivRef.current,
       style: {
@@ -158,12 +168,7 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
         sources: {
           "osm-raster": {
             type: "raster",
-            tiles: [
-              "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-              "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-              "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-              "https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-            ],
+            tiles: getCartoTiles(isDark),
             tileSize: 256,
             attribution: "© OpenStreetMap contributors © CARTO",
           },
@@ -296,7 +301,7 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
         source: "buses",
         layout: {
           "text-field": ["get", "busNumber"],
-          "text-font": ["Noto Sans Arabic Bold", "Noto Sans Bold", "Arial Unicode MS Bold"],
+          "text-font": ["Open Sans Semibold"],
           "text-size": 11,
           "text-offset": [0, 1.8],
           "text-anchor": "top",
@@ -319,6 +324,30 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
           "text-halo-width": 7,
         },
       });
+
+      const syncMapTheme = () => {
+        const dark = document.documentElement.classList.contains("dark");
+        const source = map.getSource("osm-raster") as maplibregl.RasterTileSource;
+        source?.setTiles(getCartoTiles(dark));
+        map.setPaintProperty("bus-labels", "text-color", [
+          "case",
+          ["boolean", ["get", "selected"], false],
+          "#ffffff",
+          dark ? "#f8fafc" : "#0f172a",
+        ]);
+        map.setPaintProperty(
+          "bus-labels",
+          "text-halo-color",
+          dark ? "rgba(15,23,42,0.95)" : "rgba(255,255,255,0.95)",
+        );
+      };
+
+      const themeObserver = new MutationObserver(syncMapTheme);
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+      map.once("remove", () => themeObserver.disconnect());
 
       // ── Click للاختيار + Popup ──────────────────────────────────────────
       map.on("click", "bus-icons", (e) => {
@@ -469,7 +498,7 @@ export default function MapTrackerV4({ locations, selectedBus, onSelectBus }: Pr
       map.remove();
       mapRef.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── تحديث stateRef عند وصول locations ──────────────────────────────────
   useEffect(() => {

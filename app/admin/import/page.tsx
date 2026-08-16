@@ -125,18 +125,16 @@ export default function ImportPage() {
       // التحقق من نوع الملف
       const validTypes = [
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
         "text/csv",
       ];
       if (
         !validTypes.includes(selectedFile.type) &&
         !selectedFile.name.endsWith(".xlsx") &&
-        !selectedFile.name.endsWith(".xls") &&
         !selectedFile.name.endsWith(".csv")
       ) {
         setResult({
           success: false,
-          message: "يرجى اختيار ملف صالح (.xlsx أو .xls أو .csv)",
+          message: "يرجى اختيار ملف صالح (.xlsx أو .csv)",
         });
         return;
       }
@@ -191,22 +189,22 @@ export default function ImportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50" dir="rtl">
+    <div className="import-page min-h-screen bg-slate-50 dark:bg-slate-950" dir="rtl">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
               استيراد من Excel
             </h1>
-            <p className="text-slate-600">
+            <p className="text-slate-600 dark:text-slate-400">
               رفع ملف Excel لاستيراد البيانات تلقائياً
             </p>
           </div>
           <Link href="/admin">
             <Button
               variant="outline"
-              className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+              className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               <ArrowLeft className="w-4 h-4 ml-2" />
               العودة للإدارة
@@ -216,9 +214,9 @@ export default function ImportPage() {
 
         <div className="max-w-2xl mx-auto">
           {/* Upload Card */}
-          <Card className="bg-white border-slate-200 shadow-sm mb-6">
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm mb-6">
             <CardHeader>
-              <CardTitle className="text-xl text-slate-800 flex items-center gap-2">
+              <CardTitle className="text-xl text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <FileSpreadsheet className="w-6 h-6 text-green-600" />
                 رفع ملف Excel
               </CardTitle>
@@ -232,7 +230,7 @@ export default function ImportPage() {
                 <Button
                   onClick={downloadTemplate}
                   variant="outline"
-                  className="flex-1 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                  className="flex-1 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
                 >
                   <Download className="w-4 h-4 ml-2" />
                   تحميل النموذج الافتراضي
@@ -240,11 +238,11 @@ export default function ImportPage() {
               </div>
 
               {/* File Input */}
-              <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center hover:border-blue-300 transition-colors">
+              <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-8 text-center hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
                 <Input
                   ref={fileInputRef}
                   type="file"
-                  accept=".xlsx,.xls,.csv"
+                  accept=".xlsx,.csv"
                   onChange={handleFileChange}
                   className="hidden"
                   id="excel-file"
@@ -254,11 +252,11 @@ export default function ImportPage() {
                   className="cursor-pointer flex flex-col items-center"
                 >
                   <Upload className="w-12 h-12 text-slate-400 mb-4" />
-                  <span className="text-slate-600 mb-2">
+                  <span className="text-slate-600 dark:text-slate-300 mb-2">
                     {file ? file.name : "اضغط لاختيار ملف أو اسحبه هنا"}
                   </span>
                   <span className="text-sm text-slate-400">
-                    يدعم ملفات .xlsx و .xls و .csv
+                    يدعم ملفات .xlsx و .csv
                   </span>
                 </label>
               </div>
@@ -289,8 +287,8 @@ export default function ImportPage() {
             <Card
               className={`border ${
                 result.success
-                  ? "bg-green-50 border-green-200"
-                  : "bg-red-50 border-red-200"
+                  ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800"
+                  : "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"
               }`}
             >
               <CardContent className="pt-6">
@@ -313,7 +311,7 @@ export default function ImportPage() {
                     {result.details && (
                       <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                         {result.details.universitiesCreated !== undefined && (
-                          <div className="bg-white/50 rounded p-2">
+                          <div className="bg-white/50 dark:bg-slate-900/50 rounded p-2">
                             <span className="text-slate-600">الجامعات:</span>{" "}
                             <span className="font-semibold">
                               {result.details.universitiesCreated}
@@ -321,7 +319,7 @@ export default function ImportPage() {
                           </div>
                         )}
                         {result.details.driversCreated !== undefined && (
-                          <div className="bg-white/50 rounded p-2">
+                          <div className="bg-white/50 dark:bg-slate-900/50 rounded p-2">
                             <span className="text-slate-600">السائقين:</span>{" "}
                             <span className="font-semibold">
                               {result.details.driversCreated}
@@ -329,7 +327,7 @@ export default function ImportPage() {
                           </div>
                         )}
                         {result.details.busesCreated !== undefined && (
-                          <div className="bg-white/50 rounded p-2">
+                          <div className="bg-white/50 dark:bg-slate-900/50 rounded p-2">
                             <span className="text-slate-600">الباصات:</span>{" "}
                             <span className="font-semibold">
                               {result.details.busesCreated}
@@ -337,7 +335,7 @@ export default function ImportPage() {
                           </div>
                         )}
                         {result.details.routesCreated !== undefined && (
-                          <div className="bg-white/50 rounded p-2">
+                          <div className="bg-white/50 dark:bg-slate-900/50 rounded p-2">
                             <span className="text-slate-600">المسارات:</span>{" "}
                             <span className="font-semibold">
                               {result.details.routesCreated}
@@ -345,7 +343,7 @@ export default function ImportPage() {
                           </div>
                         )}
                         {result.details.tripsCreated !== undefined && (
-                          <div className="bg-white/50 rounded p-2">
+                          <div className="bg-white/50 dark:bg-slate-900/50 rounded p-2">
                             <span className="text-slate-600">الرحلات:</span>{" "}
                             <span className="font-semibold">
                               {result.details.tripsCreated}
@@ -376,14 +374,14 @@ export default function ImportPage() {
           )}
 
           {/* Instructions Card */}
-          <Card className="bg-white border-slate-200 shadow-sm mt-6">
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm mt-6">
             <CardHeader>
-              <CardTitle className="text-lg text-slate-800">
+              <CardTitle className="text-lg text-slate-800 dark:text-slate-100">
                 تعليمات الاستخدام
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-slate-600 text-sm">
+              <ul className="space-y-2 text-slate-600 dark:text-slate-300 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="text-blue-600 font-bold">1.</span>
                   قم بتحميل النموذج الافتراضي أعلاه
@@ -405,9 +403,9 @@ export default function ImportPage() {
           </Card>
 
           {/* Template Preview Card */}
-          <Card className="bg-white border-slate-200 shadow-sm mt-6">
+          <Card className="import-preview bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm mt-6">
             <CardHeader>
-              <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
+              <CardTitle className="text-lg text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <Table className="w-5 h-5 text-blue-600" />
                 معاينة تنسيق الملف
               </CardTitle>

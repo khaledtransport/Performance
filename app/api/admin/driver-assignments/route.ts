@@ -10,55 +10,43 @@ export async function GET() {
       return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
     }
 
-    const drivers = await prisma.driver.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            fullName: true,
-            role: true,
-            isActive: true,
+    const [drivers, unlinkedDriverUsers, buses] = await Promise.all([
+      prisma.driver.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              role: true,
+              isActive: true,
+            },
           },
-        },
-        assignments: {
-          where: { isActive: true },
-          include: {
-            bus: {
-              select: {
-                id: true,
-                busNumber: true,
-                isActive: true,
+          assignments: {
+            where: { isActive: true },
+            include: {
+              bus: {
+                select: {
+                  id: true,
+                  busNumber: true,
+                  isActive: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: { name: "asc" },
-    });
-
-    // جلب حسابات بدور DRIVER غير مربوطة
-    const unlinkedDriverUsers = await prisma.user.findMany({
-      where: {
-        role: "DRIVER",
-        driverId: null,
-      },
-      select: {
-        id: true,
-        username: true,
-        fullName: true,
-      },
-    });
-
-    // جلب الباصات النشطة
-    const buses = await prisma.bus.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        busNumber: true,
-      },
-      orderBy: { busNumber: "asc" },
-    });
+        orderBy: { name: "asc" },
+      }),
+      prisma.user.findMany({
+        where: { role: "DRIVER", driverId: null },
+        select: { id: true, username: true, fullName: true },
+      }),
+      prisma.bus.findMany({
+        where: { isActive: true },
+        select: { id: true, busNumber: true },
+        orderBy: { busNumber: "asc" },
+      }),
+    ]);
 
     return NextResponse.json({
       drivers: drivers.map((d) => ({

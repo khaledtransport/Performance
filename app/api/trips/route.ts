@@ -53,8 +53,10 @@ export async function GET(request: NextRequest) {
 
     const allTrips: any[] = [];
 
-    // جلب من جدول trips (الجديد) - includes مُبسطة
-    if (source !== "route_trips") {
+    // الجدولان مستقلان؛ تشغيلهما بالتوازي يقلل زمن الانتظار للشاشة الباردة.
+    await Promise.all([
+      (async () => {
+        if (source === "route_trips") return;
       const tripsWhereClause: any = {};
       if (Object.keys(dateFilter).length > 0)
         tripsWhereClause.tripDate = dateFilter;
@@ -127,10 +129,10 @@ export async function GET(request: NextRequest) {
           },
         });
       }
-    }
+      })(),
 
-    // جلب من جدول route_trips (القديم) - includes مُبسطة
-    if (source !== "trips") {
+      (async () => {
+        if (source === "trips") return;
       const routeTripsWhereClause: any = {};
       if (Object.keys(dateFilter).length > 0)
         routeTripsWhereClause.tripDate = dateFilter;
@@ -206,7 +208,8 @@ export async function GET(request: NextRequest) {
           },
         });
       }
-    }
+      })(),
+    ]);
 
     // ترتيب النتائج حسب التاريخ والوقت
     allTrips.sort((a, b) => {
@@ -279,20 +282,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // تحويل الوقت إلى كائن Date
-    const timeParts = scheduledTime.split(":");
-    const scheduledDateTime = new Date(tripDate);
-    scheduledDateTime.setHours(
-      parseInt(timeParts[0]),
-      parseInt(timeParts[1]),
-      0
+    // تحويل التاريخ والوقت بدقة وبشكل آمن لتجنب إزاحة المناطق الزمنية
+    const dateOnly = typeof tripDate === "string" ? tripDate.split("T")[0] : new Date(tripDate).toISOString().split("T")[0];
+    const cleanTime = String(scheduledTime).trim();
+    const timeParts = cleanTime.split(":");
+    const hours = parseInt(timeParts[0] || "0", 10);
+    const minutes = parseInt(timeParts[1] || "0", 10);
+
+    const normalizedTripDate = new Date(`${dateOnly}T00:00:00.000Z`);
+    const scheduledDateTime = new Date(
+      `${dateOnly}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00.000Z`
     );
 
     const newTrip = await prisma.trip.create({
       data: {
         busId: finalBusId,
         routeId: routeId || undefined,
-        tripDate: new Date(tripDate),
+        tripDate: normalizedTripDate,
         direction: direction as TripDirection,
         scheduledTime: scheduledDateTime,
         passengersCount: passengersCount || 0,
@@ -307,6 +313,7 @@ export async function POST(request: NextRequest) {
 
     // إبطال الكاش عند إضافة رحلة جديدة
     apiCache.invalidatePrefix("trips:");
+    apiCache.invalidatePrefix("statistics:");
 
     return NextResponse.json(newTrip, { status: 201 });
   } catch (error: any) {

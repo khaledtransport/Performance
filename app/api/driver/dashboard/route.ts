@@ -89,16 +89,17 @@ export async function GET() {
     let totalTrips = 0;
 
     if (activeAssignment) {
-      todayTrips = await prisma.trip.count({
-        where: {
-          busId: activeAssignment.busId,
-          tripDate: { gte: today, lt: tomorrow },
-        },
-      });
-
-      totalTrips = await prisma.trip.count({
-        where: { busId: activeAssignment.busId },
-      });
+      [todayTrips, totalTrips] = await Promise.all([
+        prisma.trip.count({
+          where: {
+            busId: activeAssignment.busId,
+            tripDate: { gte: today, lt: tomorrow },
+          },
+        }),
+        prisma.trip.count({
+          where: { busId: activeAssignment.busId },
+        }),
+      ]);
     }
 
     return NextResponse.json({

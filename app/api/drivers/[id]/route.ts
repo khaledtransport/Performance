@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiCache } from "@/lib/cache";
+import { requireApiRole } from "@/lib/api-auth";
+import { ADMIN_ROLES, VIEW_ROLES } from "@/lib/rbac";
 
 // GET: جلب سائق محدد
 export async function GET(
@@ -8,6 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireApiRole(VIEW_ROLES);
+    if (auth.response) return auth.response;
+
     const { id } = await params;
 
     const driver = await prisma.driver.findUnique({
@@ -41,6 +46,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireApiRole(ADMIN_ROLES);
+    if (auth.response) return auth.response;
+
     const { id } = await params;
     const body = await request.json();
     const { name, phone } = body;
@@ -69,6 +77,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireApiRole(ADMIN_ROLES);
+    if (auth.response) return auth.response;
+
     const { id } = await params;
 
     // Prisma will cascade delete routes based on schema

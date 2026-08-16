@@ -84,6 +84,8 @@ model BusDriverAssignment {
   bus          Bus       @relation(fields: [busId], references: [id], onDelete: Cascade)
   driver       Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
+  @@index([busId, isActive])
+  @@index([driverId, isActive])
   @@map("bus_driver_assignments")
 }
 
@@ -105,6 +107,8 @@ model Trip {
   route               Route?        @relation(fields: [routeId], references: [id])
 
   @@index([busId, tripDate])
+  @@index([tripDate])
+  @@index([routeId])
   @@index([status])
   @@map("trips")
 }
@@ -142,6 +146,9 @@ model Route {
   trips            Trip[]
   trackingSessions TrackingSession[]
 
+  @@index([busId, isActive])
+  @@index([driverId])
+  @@index([universityId])
   @@map("routes")
 }
 
@@ -158,6 +165,7 @@ model RouteTrip {
   route         Route         @relation(fields: [routeId], references: [id], onDelete: Cascade)
 
   @@index([routeId, tripDate])
+  @@index([tripDate])
   @@map("route_trips")
 }
 
@@ -311,6 +319,7 @@ model TrackingPoint {
 
   @@index([sessionId, timestamp])
   @@index([busId, timestamp])
+  @@index([timestamp])
   @@map("tracking_points")
 }
 

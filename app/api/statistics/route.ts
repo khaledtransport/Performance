@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/api-auth";
+import { VIEW_ROLES } from "@/lib/rbac";
+import { apiCache } from "@/lib/cache";
 
-type StatusCountRow = {
-  status: string | null;
-  _count: number | { _all: number };
-};
+const CACHE_TTL = 60_000;
 
 // GET: جلب إحصائيات النظام (محسّنة بـ groupBy و aggregate)
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireApiRole(VIEW_ROLES);
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const fromParam = searchParams.get("from");
     const toParam   = searchParams.get("to");
@@ -25,25 +28,31 @@ export async function GET(request: NextRequest) {
     endDate.setHours(23, 59, 59, 999);
 
     const targetDate = toStr; // للـ backward compat
+    const cacheKey = `statistics:${fromStr}:${toStr}`;
+    const cached = apiCache.get<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, { headers: { "X-Cache": "HIT" } });
+    }
 
-    // جلب جميع البيانات بطريقة محسّنة
+    // Keep the database work in small batches. Supabase session pooling has a
+    // low connection cap, and one large Promise.all can exhaust it during dev
+    // reloads or when other pages poll notifications at the same time.
     const [
       totalUniversities,
       totalDrivers,
       totalBuses,
       totalDistricts,
-      trips,
-      routeTrips,
-      tripStatusCounts,
-      routeTripStatusCounts,
-      tripStudentStats,
-      routeTripStudentStats,
     ] = await Promise.all([
       prisma.university.count(),
       prisma.driver.count(),
       prisma.bus.count(),
       prisma.district.count(),
-      // جلب trips فقط بـ select محدود
+    ]);
+
+    const [
+      trips,
+      routeTrips,
+    ] = await Promise.all([
       prisma.trip.findMany({
         where: { tripDate: { gte: startDate, lte: endDate } },
         select: {
@@ -53,32 +62,9 @@ export async function GET(request: NextRequest) {
           routeId: true,
         },
       }),
-      // جلب routeTrips فقط بـ select محدود
       prisma.routeTrip.findMany({
         where: { tripDate: { gte: startDate, lte: endDate } },
         select: { id: true, status: true, studentsCount: true, routeId: true },
-      }),
-      // إحصائيات الحالات للـ trips
-      prisma.trip.groupBy({
-        by: ["status"],
-        where: { tripDate: { gte: startDate, lte: endDate } },
-        _count: true,
-      }),
-      // إحصائيات الحالات للـ routeTrips
-      prisma.routeTrip.groupBy({
-        by: ["status"],
-        where: { tripDate: { gte: startDate, lte: endDate } },
-        _count: true,
-      }),
-      // إحصائيات الطلاب للـ trips
-      prisma.trip.aggregate({
-        where: { tripDate: { gte: startDate, lte: endDate } },
-        _sum: { passengersCount: true },
-      }),
-      // إحصائيات الطلاب للـ routeTrips
-      prisma.routeTrip.aggregate({
-        where: { tripDate: { gte: startDate, lte: endDate } },
-        _sum: { studentsCount: true },
       }),
     ]);
 
@@ -91,25 +77,20 @@ export async function GET(request: NextRequest) {
       CANCELLED: 0,
     } as Record<string, number>;
 
-    // معالجة إحصائيات الحالات
-    const getCountValue = (count: StatusCountRow["_count"]) =>
-      typeof count === "number" ? count : (count._all ?? 0);
-
-    tripStatusCounts.forEach((s: StatusCountRow) => {
-      if (s.status && statusCounts.hasOwnProperty(s.status)) {
-        statusCounts[s.status] += getCountValue(s._count);
+    for (const trip of trips) {
+      if (trip.status && Object.hasOwn(statusCounts, trip.status)) {
+        statusCounts[trip.status]++;
       }
-    });
-
-    routeTripStatusCounts.forEach((s: StatusCountRow) => {
-      if (s.status && statusCounts.hasOwnProperty(s.status)) {
-        statusCounts[s.status] += getCountValue(s._count);
+    }
+    for (const trip of routeTrips) {
+      if (trip.status && Object.hasOwn(statusCounts, trip.status)) {
+        statusCounts[trip.status]++;
       }
-    });
+    }
 
     const totalStudents =
-      (tripStudentStats._sum?.passengersCount || 0) +
-      (routeTripStudentStats._sum?.studentsCount || 0);
+      trips.reduce((sum, trip) => sum + (trip.passengersCount || 0), 0) +
+      routeTrips.reduce((sum, trip) => sum + (trip.studentsCount || 0), 0);
 
     // ثم جلب معلومات السائقين والجامعات بفعالية
     const driverAgg: Record<
@@ -237,7 +218,7 @@ export async function GET(request: NextRequest) {
       ? parseFloat(((statusCounts.ARRIVED / totalTrips) * 100).toFixed(1))
       : 0;
 
-    return NextResponse.json({
+    const response = {
       date: targetDate,
       from: fromStr,
       to: toStr,
@@ -274,7 +255,10 @@ export async function GET(request: NextRequest) {
         totalTrips: u.trips,
         totalStudents: u.students,
       })),
-    });
+    };
+
+    apiCache.set(cacheKey, response, CACHE_TTL);
+    return NextResponse.json(response, { headers: { "X-Cache": "MISS" } });
   } catch (error) {
     console.error("Error fetching statistics:", error);
     return NextResponse.json(

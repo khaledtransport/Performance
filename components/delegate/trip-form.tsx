@@ -95,10 +95,10 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
     const selectedRouteData = routes.find((r) => r.id === selectedRoute);
 
     return (
-        <Card className="bg-white border-slate-200 shadow-sm">
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader>
-                <CardTitle className="text-2xl text-slate-900">تسجيل رحلة جديدة</CardTitle>
-                <CardDescription className="text-slate-600">
+                <CardTitle className="text-2xl text-slate-900 dark:text-slate-100">تسجيل رحلة جديدة</CardTitle>
+                <CardDescription className="text-slate-600 dark:text-slate-400">
                     قم بتعبئة البيانات التالية لتسجيل رحلة
                 </CardDescription>
             </CardHeader>
@@ -106,11 +106,11 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Route Selection */}
                     <div className="space-y-2">
-                        <Label htmlFor="route" className="text-slate-700">
+                        <Label htmlFor="route" className="text-slate-700 dark:text-slate-300">
                             اختر الرحلة الأساسية *
                         </Label>
                         <Select value={selectedRoute} onValueChange={setSelectedRoute}>
-                            <SelectTrigger id="route" className="bg-white border-slate-200 text-slate-900">
+                            <SelectTrigger id="route" className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
                                 <SelectValue placeholder="اختر رحلة..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -127,29 +127,29 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
 
                     {/* Trip Details Card */}
                     {selectedRouteData && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                 <div>
-                                    <p className="text-slate-600 mb-1 text-xs">الجامعة</p>
-                                    <p className="font-semibold text-slate-900">
+                                    <p className="text-slate-600 dark:text-slate-400 mb-1 text-xs">الجامعة</p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
                                         {selectedRouteData.university?.name}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-slate-600 mb-1 text-xs">السائق</p>
-                                    <p className="font-semibold text-slate-900">
+                                    <p className="text-slate-600 dark:text-slate-400 mb-1 text-xs">السائق</p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
                                         {selectedRouteData.driver?.name}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-slate-600 mb-1 text-xs">الباص</p>
-                                    <p className="font-semibold text-slate-900">
+                                    <p className="text-slate-600 dark:text-slate-400 mb-1 text-xs">الباص</p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
                                         {selectedRouteData.bus?.busNumber}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-slate-600 mb-1 text-xs">المندوب</p>
-                                    <p className="font-semibold text-slate-900">
+                                    <p className="text-slate-600 dark:text-slate-400 mb-1 text-xs">المندوب</p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
                                         {selectedRouteData.representative?.name}
                                     </p>
                                 </div>
@@ -160,7 +160,7 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                     {/* Date and Direction */}
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="date" className="text-slate-700">
+                            <Label htmlFor="date" className="text-slate-700 dark:text-slate-300">
                                 التاريخ *
                             </Label>
                             <Input
@@ -169,12 +169,12 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                                 value={tripDate}
                                 onChange={(e) => setTripDate(e.target.value)}
                                 required
-                                className="bg-white border-slate-200 text-slate-900"
+                                className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="direction" className="text-slate-700">
+                            <Label htmlFor="direction" className="text-slate-700 dark:text-slate-300">
                                 الاتجاه *
                             </Label>
                             <Select
@@ -182,7 +182,7 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                                 onValueChange={(v: any) => setDirection(v)}
                                 required
                             >
-                                <SelectTrigger className="bg-white border-slate-200 text-slate-900">
+                                <SelectTrigger className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -195,11 +195,11 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
 
                     {/* Time Selection */}
                     <div className="space-y-2">
-                        <Label htmlFor="time" className="text-slate-700">
+                        <Label htmlFor="time" className="text-slate-700 dark:text-slate-300">
                             الوقت *
                         </Label>
                         <Select value={tripTime} onValueChange={setTripTime} required>
-                            <SelectTrigger className="bg-white border-slate-200 text-slate-900">
+                            <SelectTrigger className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
                                 <SelectValue placeholder="اختر الوقت..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -215,7 +215,7 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                     {/* Students Count and Status */}
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="students" className="text-slate-700">
+                            <Label htmlFor="students" className="text-slate-700 dark:text-slate-300">
                                 عدد الطلاب *
                             </Label>
                             <Input
@@ -227,12 +227,12 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                                     setStudentsCount(parseInt(e.target.value) || 0)
                                 }
                                 required
-                                className="bg-white border-slate-200 text-slate-900"
+                                className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="status" className="text-slate-700">
+                            <Label htmlFor="status" className="text-slate-700 dark:text-slate-300">
                                 حالة الرحلة *
                             </Label>
                             <Select
@@ -240,7 +240,7 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                                 onValueChange={(v: any) => setStatus(v)}
                                 required
                             >
-                                <SelectTrigger className="bg-white border-slate-200 text-slate-900">
+                                <SelectTrigger className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -256,7 +256,7 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
 
                     {/* Notes */}
                     <div className="space-y-2">
-                        <Label htmlFor="notes" className="text-slate-700">
+                        <Label htmlFor="notes" className="text-slate-700 dark:text-slate-300">
                             ملاحظات
                         </Label>
                         <Input
@@ -264,7 +264,7 @@ export function TripForm({ routes, onSubmit, loading }: TripFormProps) {
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             placeholder="أي ملاحظات إضافية..."
-                            className="bg-white border-slate-200 text-slate-900 placeholder-slate-400"
+                            className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400"
                         />
                     </div>
 

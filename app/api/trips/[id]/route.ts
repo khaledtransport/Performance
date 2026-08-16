@@ -113,6 +113,7 @@ export async function PUT(
 
     // بطّل الكاش بعد التحديث
     apiCache.invalidatePrefix("trips:");
+    apiCache.invalidatePrefix("statistics:");
 
     return NextResponse.json(updatedTrip);
   } catch (error: any) {
@@ -146,6 +147,7 @@ export async function DELETE(
 
     // بطّل الكاش بعد الحذف
     apiCache.invalidatePrefix("trips:");
+    apiCache.invalidatePrefix("statistics:");
 
     return NextResponse.json({ message: "تم حذف الرحلة بنجاح" });
   } catch (error: any) {

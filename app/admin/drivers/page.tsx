@@ -29,11 +29,12 @@ export default function DriversPage() {
   const fetchDrivers = async () => {
     try {
       const res = await fetch("/Performance/api/drivers");
+      if (!res.ok) throw new Error(`فشل التحميل: ${res.status}`);
       const data = await res.json();
       setDrivers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("خطأ في جلب السائقين:", error);
-      setDrivers([]);
+      toast({ title: "تعذر التحميل", description: "فشل تحميل السائقين. حاول مجدداً.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -94,13 +95,13 @@ export default function DriversPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8" dir="rtl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8" dir="rtl">
       <div className="max-w-6xl mx-auto">
         <div className="grid md:grid-cols-2 gap-8">
-          <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all">
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-slate-900">
-                <div className="p-2 bg-green-50 rounded-lg">
+              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                <div className="p-2 bg-green-50 dark:bg-green-950 rounded-lg">
                   <Plus className="w-5 h-5 text-green-600" />
                 </div>
                 {editingId ? "تعديل سائق" : "إضافة سائق جديد"}
@@ -109,7 +110,7 @@ export default function DriversPage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="name" className="text-slate-600">
+                  <Label htmlFor="name" className="text-slate-600 dark:text-slate-300">
                     اسم السائق
                   </Label>
                   <Input
@@ -120,12 +121,12 @@ export default function DriversPage() {
                     }
                     placeholder="مثال: محمد أحمد"
                     required
-                    className="bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-green-500 focus:ring-green-500"
+                    className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-green-500 focus:ring-green-500"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="phone" className="text-slate-600">
+                  <Label htmlFor="phone" className="text-slate-600 dark:text-slate-300">
                     رقم الجوال
                   </Label>
                   <Input
@@ -136,7 +137,7 @@ export default function DriversPage() {
                     }
                     placeholder="مثال: 0501234567"
                     dir="ltr"
-                    className="bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-green-500 focus:ring-green-500"
+                    className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-green-500 focus:ring-green-500"
                   />
                 </div>
 
@@ -150,7 +151,7 @@ export default function DriversPage() {
                   {editingId && (
                     <Button
                       type="button"
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+                      className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
                       onClick={() => {
                         setFormData({ name: "", phone: "" });
                         setEditingId(null);
@@ -164,9 +165,9 @@ export default function DriversPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-slate-200 shadow-sm">
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-slate-900">
+              <CardTitle className="text-slate-900 dark:text-slate-100">
                 السائقين المسجلين ({drivers.length})
               </CardTitle>
             </CardHeader>
@@ -184,10 +185,10 @@ export default function DriversPage() {
                   {drivers.map((driver) => (
                     <div
                       key={driver.id}
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-all"
+                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     >
                       <div>
-                        <p className="font-medium text-slate-900">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">
                           {driver.name}
                         </p>
                         {driver.phone && (

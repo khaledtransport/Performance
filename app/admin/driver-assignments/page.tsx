@@ -77,20 +77,21 @@ export default function DriverAssignmentsPage() {
   const [showPass, setShowPass] = useState(false);
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await fetch("/Performance/api/admin/driver-assignments");
-      if (res.ok) {
-        const json = await res.json();
-        setDrivers(json.drivers);
-        setUnlinkedUsers(json.unlinkedUsers);
-        setBuses(json.buses);
-      }
+      if (!res.ok) throw new Error(`فشل تحميل الربط: ${res.status}`);
+      const json = await res.json();
+      setDrivers(json.drivers);
+      setUnlinkedUsers(json.unlinkedUsers);
+      setBuses(json.buses);
     } catch (error) {
       console.error("Error:", error);
+      toast({ title: "تعذر تحميل بيانات الربط", description: "تحقق من الاتصال ثم أعد المحاولة.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchData();

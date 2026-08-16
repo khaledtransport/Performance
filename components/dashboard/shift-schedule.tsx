@@ -52,19 +52,19 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
   }, []);
 
   const statusColors: Record<string, string> = {
-    PENDING: "bg-yellow-50 border-yellow-200 hover:bg-yellow-100",
-    DEPARTED: "bg-blue-50 border-blue-200 hover:bg-blue-100",
-    ARRIVED: "bg-green-50 border-green-200 hover:bg-green-100",
-    DELAYED: "bg-orange-50 border-orange-200 hover:bg-orange-100",
-    CANCELLED: "bg-red-50 border-red-200 hover:bg-red-100",
+    PENDING: "bg-yellow-50 dark:bg-yellow-950/50 border-yellow-200 dark:border-yellow-800 hover:bg-yellow-100 dark:hover:bg-yellow-950",
+    DEPARTED: "bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-950",
+    ARRIVED: "bg-green-50 dark:bg-green-950/50 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950",
+    DELAYED: "bg-orange-50 dark:bg-orange-950/50 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-950",
+    CANCELLED: "bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-950",
   };
 
   const statusBadges: Record<string, string> = {
-    PENDING: "bg-yellow-100 text-yellow-800 border-yellow-300",
-    DEPARTED: "bg-blue-100 text-blue-800 border-blue-300",
-    ARRIVED: "bg-green-100 text-green-800 border-green-300",
-    DELAYED: "bg-orange-100 text-orange-800 border-orange-300",
-    CANCELLED: "bg-red-100 text-red-800 border-red-300",
+    PENDING: "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700",
+    DEPARTED: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700",
+    ARRIVED: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700",
+    DELAYED: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700",
+    CANCELLED: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-300 dark:border-red-700",
   };
 
   const statusArabic: Record<string, string> = {
@@ -98,19 +98,8 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
 
   // Export to Excel function
   const exportToExcel = async () => {
-    // Dynamic import for xlsx
-    const XLSX = await import("xlsx");
+    const writeXlsxFile = (await import("write-excel-file/browser")).default;
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-
-    // All time slots in one row
-    const allData: any[] = [];
-
-    // Header row with all times
-    allData.push(timeSlots.map((slot) => slot.display));
-
-    // Find max rows needed
     const maxRows = Math.max(
       ...timeSlots.map((slot) => {
         const slotTrips = trips.filter((t) =>
@@ -120,111 +109,24 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
       })
     );
 
-    // Build data rows with trip info and status
+    const rows: any[][] = [
+      timeSlots.map((slot) => ({
+        value: slot.display,
+        fontWeight: "bold",
+        align: "center",
+        alignVertical: "center",
+        backgroundColor: "#e6e6e6",
+        wrap: true,
+        height: 28,
+      })),
+    ];
+
     for (let rowIdx = 0; rowIdx < maxRows; rowIdx++) {
-      const row: any[] = [];
-      timeSlots.forEach((slot) => {
+      rows.push(
+        timeSlots.map((slot) => {
         const slotTrips = trips.filter((t) =>
           isTimeInSlot(t.tripTime, slot.hour, slot.minute)
         );
-        if (rowIdx < slotTrips.length) {
-          const trip = slotTrips[rowIdx];
-          row.push({
-            v: `${trip.route?.university?.name || "-"}\n${
-              trip.route?.districts?.map((d: any) => d.name).join("، ") || "-"
-            }\n${trip.route?.driver?.name || "-"}\n${
-              trip.route?.bus?.busNumber || "-"
-            }\n👥${trip.studentsCount || 0}\n${
-              trip.direction === "GO" ? "ذهاب" : "عودة"
-            }\n${
-              statusArabic[trip.status as keyof typeof statusArabic] ||
-              trip.status
-            }`,
-            s: {
-              alignment: {
-                vertical: "top",
-                horizontal: "right",
-                wrapText: true,
-              },
-              fill: {
-                type: "pattern",
-                patternType: "solid",
-                fgColor: {
-                  rgb:
-                    trip.status === "DELAYED"
-                      ? "FFCC99"
-                      : trip.status === "ARRIVED"
-                      ? "90EE90"
-                      : trip.status === "CANCELLED"
-                      ? "FF9999"
-                      : trip.status === "DEPARTED"
-                      ? "ADD8E6"
-                      : trip.status === "PENDING"
-                      ? "FFEB99"
-                      : "FFFFFF",
-                },
-              },
-            },
-          });
-        } else {
-          row.push({
-            v: "-",
-            s: {
-              alignment: {
-                vertical: "top",
-                horizontal: "center",
-                wrapText: true,
-              },
-              fill: {
-                type: "pattern",
-                patternType: "solid",
-                fgColor: { rgb: "FFFFFF" },
-              },
-            },
-          });
-        }
-      });
-      allData.push(row);
-    }
-
-    // Create sheet with proper object formatting
-    const ws = XLSX.utils.sheet_add_aoa(
-      XLSX.utils.book_new().SheetNames ? {} : {},
-      [timeSlots.map((s) => s.display)]
-    );
-
-    // Manual sheet creation
-    const newWs: any = {};
-
-    // Add header
-    timeSlots.forEach((slot, idx) => {
-      const cellRef = XLSX.utils.encode_cell({ r: 0, c: idx });
-      newWs[cellRef] = {
-        v: slot.display,
-        s: {
-          font: { bold: true },
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-            wrapText: true,
-          },
-          fill: {
-            type: "pattern",
-            patternType: "solid",
-            fgColor: { rgb: "E6E6E6" },
-          },
-        },
-      };
-    });
-
-    // Add data with formatting
-    for (let rowIdx = 0; rowIdx < maxRows; rowIdx++) {
-      timeSlots.forEach((slot, colIdx) => {
-        const slotTrips = trips.filter((t) =>
-          isTimeInSlot(t.tripTime, slot.hour, slot.minute)
-        );
-
-        const cellRef = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });
 
         if (rowIdx < slotTrips.length) {
           const trip = slotTrips[rowIdx];
@@ -241,8 +143,8 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
               ? "FFEB99"
               : "FFFFFF";
 
-          newWs[cellRef] = {
-            v: `${trip.route?.university?.name || "-"}\n${
+          return {
+            value: `${trip.route?.university?.name || "-"}\n${
               trip.route?.districts?.map((d: any) => d.name).join("، ") || "-"
             }\n${trip.route?.driver?.name || "-"}\n${
               trip.route?.bus?.busNumber || "-"
@@ -252,55 +154,32 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
               statusArabic[trip.status as keyof typeof statusArabic] ||
               trip.status
             }`,
-            s: {
-              alignment: {
-                vertical: "top",
-                horizontal: "right",
-                wrapText: true,
-              },
-              fill: {
-                type: "pattern",
-                patternType: "solid",
-                fgColor: { rgb: bgColor },
-              },
-            },
-          };
-        } else {
-          newWs[cellRef] = {
-            v: "-",
-            s: {
-              alignment: {
-                vertical: "top",
-                horizontal: "center",
-                wrapText: true,
-              },
-              fill: {
-                type: "pattern",
-                patternType: "solid",
-                fgColor: { rgb: "FFFFFF" },
-              },
-            },
+            align: "right",
+            alignVertical: "top",
+            wrap: true,
+            backgroundColor: `#${bgColor}`,
+            height: 90,
           };
         }
-      });
+
+        return {
+          value: "-",
+          align: "center",
+          alignVertical: "top",
+          wrap: true,
+          backgroundColor: "#ffffff",
+          height: 90,
+        };
+      })
+      );
     }
 
-    // Set dimensions
-    newWs["!ref"] = XLSX.utils.encode_range({
-      s: { r: 0, c: 0 },
-      e: { r: maxRows, c: timeSlots.length - 1 },
+    const file = await writeXlsxFile(rows, {
+      sheet: "جدول الرحلات",
+      rightToLeft: true,
+      columns: timeSlots.map(() => ({ width: 25 })),
     });
-    newWs["!cols"] = timeSlots.map(() => ({ wch: 25 }));
-    newWs["!rows"] = Array(maxRows + 1).fill({ hpt: 80 });
-
-    // Add sheet to workbook
-    XLSX.utils.book_append_sheet(wb, newWs, "جدول الرحلات");
-
-    // Write file
-    XLSX.writeFile(
-      wb,
-      `جدول-الرحلات-${new Date().toISOString().split("T")[0]}.xlsx`
-    );
+    await file.toFile(`جدول-الرحلات-${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const ScheduleContent = useMemo(() => {
@@ -426,9 +305,9 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
   }, [trips, timeSlots, isTimeInSlot, statusColors, statusArabic]);
 
   return (
-    <>
+    <div className="shift-schedule">
       {/* Normal View */}
-      <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
+      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <CardHeader className="pb-3 pt-4 px-4 flex flex-row items-center justify-between">
           <div className="space-y-1">
             <CardTitle className="text-slate-900 text-base flex items-center gap-2">
@@ -466,7 +345,7 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
 
       {/* Expanded Modal View */}
       {isExpanded && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+        <div className="fixed inset-0 z-50 bg-white dark:bg-slate-950 flex flex-col">
           <div className="flex items-center justify-between p-2 border-b border-slate-200 bg-white shadow-sm">
             <div className="flex items-center gap-2">
               <div className="p-1 bg-blue-50 rounded">
@@ -510,7 +389,7 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
                     ☀️ صباحاً (AM)
                   </h3>
                 </div>
-                <div className="grid grid-cols-6 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
                   {timeSlots
                     .filter((slot) => slot.hour < 12)
                     .map((slot) => {
@@ -618,7 +497,7 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
                     🌙 مساءً (PM)
                   </h3>
                 </div>
-                <div className="grid grid-cols-6 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
                   {timeSlots
                     .filter((slot) => slot.hour >= 12)
                     .map((slot) => {
@@ -722,6 +601,6 @@ export function ShiftSchedule({ trips }: ShiftScheduleProps) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

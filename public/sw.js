@@ -1,4 +1,4 @@
-const CACHE_NAME = "university-transport-v13";
+const CACHE_NAME = "university-transport-v14";
 const OFFLINE_URL = "/Performance/offline";
 
 // الملفات الثابتة للتخزين المسبق
@@ -30,13 +30,12 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
 
-  // تخطي: API، icons، WebSocket، webpack HMR، chrome-extension
+  // تخطي: API، ملفات Next الداخلية، WebSocket، webpack HMR، chrome-extension
   const url = request.url;
   if (
     url.includes("/api/") ||
-    url.includes("/icons/") ||
+    url.includes("/_next/") ||
     url.startsWith("chrome-extension") ||
-    url.includes("_next/webpack") ||
     url.includes("_rsc=")
   ) {
     return;
@@ -46,22 +45,6 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(() => caches.match(OFFLINE_URL))
-    );
-    return;
-  }
-
-  // ملفات Next.js الثابتة (hashed) — Network-First ثم fallback للكاش
-  if (url.includes("/_next/static/")) {
-    event.respondWith(
-      fetch(request)
-        .then((res) => {
-          if (res.status === 200) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(request, clone));
-          }
-          return res;
-        })
-        .catch(() => caches.match(request))
     );
     return;
   }

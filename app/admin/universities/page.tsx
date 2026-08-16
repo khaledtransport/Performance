@@ -28,11 +28,12 @@ export default function UniversitiesPage() {
   const fetchUniversities = async () => {
     try {
       const res = await fetch("/Performance/api/universities");
+      if (!res.ok) throw new Error(`فشل التحميل: ${res.status}`);
       const data = await res.json();
       setUniversities(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("خطأ في جلب الجامعات:", error);
-      setUniversities([]);
+      toast({ title: "تعذر التحميل", description: "فشل تحميل الجامعات. حاول مجدداً.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -93,14 +94,14 @@ export default function UniversitiesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8" dir="rtl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8" dir="rtl">
       <div className="max-w-6xl mx-auto">
         <div className="grid md:grid-cols-2 gap-8">
           {/* Form */}
-          <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all">
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-slate-900">
-                <div className="p-2 bg-blue-50 rounded-lg">
+              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded-lg">
                   <Plus className="w-5 h-5 text-blue-600" />
                 </div>
                 {editingId ? "تعديل جامعة" : "إضافة جامعة جديدة"}
@@ -109,7 +110,7 @@ export default function UniversitiesPage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="name" className="text-slate-600">
+                  <Label htmlFor="name" className="text-slate-600 dark:text-slate-300">
                     اسم الجامعة
                   </Label>
                   <Input
@@ -118,7 +119,7 @@ export default function UniversitiesPage() {
                     onChange={(e) => setFormData({ name: e.target.value })}
                     placeholder="مثال: جامعة الملك سعود"
                     required
-                    className="bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-blue-500"
+                    className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
 
@@ -132,7 +133,7 @@ export default function UniversitiesPage() {
                   {editingId && (
                     <Button
                       type="button"
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+                      className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
                       onClick={() => {
                         setFormData({ name: "" });
                         setEditingId(null);
@@ -147,9 +148,9 @@ export default function UniversitiesPage() {
           </Card>
 
           {/* List */}
-          <Card className="bg-white border-slate-200 shadow-sm">
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-slate-900">
+              <CardTitle className="text-slate-900 dark:text-slate-100">
                 الجامعات المسجلة ({universities.length})
               </CardTitle>
             </CardHeader>
@@ -167,9 +168,9 @@ export default function UniversitiesPage() {
                   {universities.map((university) => (
                     <div
                       key={university.id}
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-all"
+                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     >
-                      <span className="font-medium text-slate-900">
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
                         {university.name}
                       </span>
                       <div className="flex gap-2">

@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiCache } from "@/lib/cache";
+import { requireApiRole } from "@/lib/api-auth";
+import { ADMIN_ROLES, VIEW_ROLES } from "@/lib/rbac";
 
 const CACHE_TTL = 300000; // 5 دقائق
 
 // GET: جلب جميع السائقين
 export async function GET() {
   try {
+    const auth = await requireApiRole(VIEW_ROLES);
+    if (auth.response) return auth.response;
+
     // محاولة جلب من الكاش أولاً
     const cacheKey = "drivers:all";
     const cached = apiCache.get(cacheKey);
@@ -39,6 +44,9 @@ export async function GET() {
 // POST: إضافة سائق جديد
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireApiRole(ADMIN_ROLES);
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { name, phone } = body;
 

@@ -15,6 +15,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { requireApiRole } from "@/lib/api-auth";
+import { TRACKING_VIEW_ROLES } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // Edge لا يدعم Prisma
@@ -29,7 +31,33 @@ type LatestPoint = {
   timestamp: Date;
 };
 
-async function getBusLocations() {
+type TrackingBus = {
+  id: string;
+  busNumber: string;
+  createdAt: Date;
+  districts: Array<{ district: { name: string } }>;
+};
+
+let busCache: { data: TrackingBus[]; expiresAt: number } | null = null;
+
+async function getActiveBuses(): Promise<TrackingBus[]> {
+  if (busCache && busCache.expiresAt > Date.now()) return busCache.data;
+
+  const buses = await prisma.bus.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      busNumber: true,
+      createdAt: true,
+      districts: { select: { district: { select: { name: true } } } },
+    },
+    orderBy: { busNumber: "asc" },
+  });
+  busCache = { data: buses, expiresAt: Date.now() + 60_000 };
+  return buses;
+}
+
+async function loadBusLocations() {
   const now = Date.now();
   const activeThreshold = new Date(now - 30 * 1000);
 
@@ -38,11 +66,7 @@ async function getBusLocations() {
       where: { status: "ACTIVE", endedAt: null, lastPointAt: { gte: activeThreshold } },
       select: { busId: true },
     }),
-    prisma.bus.findMany({
-      where: { isActive: true },
-      include: { districts: { include: { district: true } } },
-      orderBy: { busNumber: "asc" },
-    }),
+    getActiveBuses(),
   ]);
 
   const activeBusSet = new Set(activeSessions.map((s) => s.busId));
@@ -89,12 +113,37 @@ async function getBusLocations() {
   });
 }
 
+type BusLocations = Awaited<ReturnType<typeof loadBusLocations>>;
+let locationsCache: { data: BusLocations; expiresAt: number } | null = null;
+let locationsInFlight: Promise<BusLocations> | null = null;
+
+async function getBusLocations(): Promise<BusLocations> {
+  if (locationsCache && locationsCache.expiresAt > Date.now()) {
+    return locationsCache.data;
+  }
+  if (locationsInFlight) return locationsInFlight;
+
+  locationsInFlight = loadBusLocations()
+    .then((data) => {
+      locationsCache = { data, expiresAt: Date.now() + 2_800 };
+      return data;
+    })
+    .finally(() => {
+      locationsInFlight = null;
+    });
+  return locationsInFlight;
+}
+
 export async function GET(request: NextRequest) {
+  const auth = await requireApiRole(TRACKING_VIEW_ROLES);
+  if (auth.response) return auth.response;
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
       let closed = false;
+      let fetching = false;
       let timer: ReturnType<typeof setInterval> | null = null;
       let eventId = 0;
 
@@ -110,21 +159,24 @@ export async function GET(request: NextRequest) {
       };
 
       const fetchAndSend = async () => {
-        if (closed) return;
+        if (closed || fetching) return;
+        fetching = true;
         try {
           const locations = await getBusLocations();
           send(locations);
         } catch (e) {
           // لا تُوقف الـ stream عند خطأ transient
           console.error("SSE fetch error:", e);
+        } finally {
+          fetching = false;
         }
       };
 
       // إرسال فوري عند الاتصال
       await fetchAndSend();
 
-      // ثم كل 2 ثانية (أسرع لتقليل التأخير)
-      timer = setInterval(fetchAndSend, 2000);
+      // دورة واحدة فقط في كل مرة؛ يمنع تراكم الاستعلامات عند بطء الشبكة.
+      timer = setInterval(fetchAndSend, 3000);
 
       // إغلاق بعد 24 ثانية (قبل Vercel 25s limit) — EventSource يعيد الاتصال تلقائياً
       const closeTimer = setTimeout(() => {

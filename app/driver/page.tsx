@@ -67,21 +67,24 @@ export default function DriverDashboardPage() {
   const { user, loading: authLoading, logout } = useAuth();
   const [data, setData] = useState<DriverDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const fetchDashboard = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/Performance/api/driver/dashboard");
+      if (!res.ok) throw new Error(`فشل تحميل لوحة السائق: ${res.status}`);
+      setData(await res.json());
+    } catch (requestError) {
+      console.error("Dashboard fetch error:", requestError);
+      setError("تعذر تحميل بيانات السائق. تحقق من الاتصال ثم أعد المحاولة.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchDashboard() {
-      try {
-        const res = await fetch("/Performance/api/driver/dashboard");
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
-        }
-      } catch (error) {
-        console.error("Dashboard fetch error:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
     if (!authLoading) fetchDashboard();
   }, [authLoading]);
 
@@ -92,6 +95,21 @@ export default function DriverDashboardPage() {
           <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-600 mb-4" />
           <p className="text-lg text-muted-foreground">جارٍ تحميل لوحة التحكم...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4" dir="rtl">
+        <Card className="w-full max-w-md border-red-200 dark:border-red-900">
+          <CardContent className="pt-8 text-center">
+            <AlertTriangle className="w-14 h-14 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2">تعذر تحميل البيانات</h2>
+            <p className="text-slate-600 dark:text-slate-300 mb-5">{error}</p>
+            <Button onClick={fetchDashboard} className="w-full">إعادة المحاولة</Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

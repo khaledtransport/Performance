@@ -3,38 +3,38 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { JWT_SECRET_BYTES } from "@/lib/jwt-config";
 import { checkRateLimit, rateLimiter, authRateLimiter, trackingRateLimiter, getClientIP } from "@/lib/rate-limit";
+import {
+  API_ROLE_RULES,
+  PAGE_ROLE_RULES,
+  getRequiredRoles,
+  hasRole,
+  roleHomePath,
+} from "@/lib/rbac";
 
 const JWT_SECRET = JWT_SECRET_BYTES;
 
 // المسارات العامة التي لا تحتاج مصادقة
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/health", "/offline"];
 
-// المسارات المحمية حسب الدور
-const ROLE_ROUTES: Record<string, string[]> = {
-  "/admin": ["ADMIN", "MANAGER"],
-  "/api/admin": ["ADMIN", "MANAGER"],
-  "/api/auth/register": ["ADMIN"],
-  "/driver": ["DRIVER"],
-  "/api/driver/": ["DRIVER"],
-};
-
-// المسارات المحظورة على السائق
-const DRIVER_BLOCKED_PATHS = [
-  "/dashboard",
-  "/tracking",
-  "/reports",
-  "/delegate",
-  "/admin",
-  "/api/admin",
-];
-
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const cleanPath = pathname.replace("/Performance", "");
+
+  // تجاوز الملفات الثابتة والأيقونات والـ Service Worker فوراً
+  if (
+    cleanPath.startsWith("/_next") ||
+    cleanPath.startsWith("/favicon") ||
+    cleanPath.startsWith("/manifest") ||
+    cleanPath.startsWith("/sw.js") ||
+    cleanPath.startsWith("/icons") ||
+    cleanPath.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff|woff2|webp|ttf)$/)
+  ) {
+    return NextResponse.next();
+  }
 
   // Rate Limiting باستخدام Upstash Redis (يعمل على Edge و Serverless)
   if (cleanPath.startsWith("/api/")) {
@@ -66,18 +66,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // تجاوز الملفات الثابتة و API الصحة
-  if (
-    cleanPath.startsWith("/_next") ||
-    cleanPath.startsWith("/favicon") ||
-    cleanPath.startsWith("/manifest") ||
-    cleanPath.startsWith("/sw.js") ||
-    cleanPath.startsWith("/icons") ||
-    cleanPath.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff|woff2)$/)
-  ) {
-    return NextResponse.next();
-  }
-
   // المسارات العامة
   if (isPublicPath(cleanPath)) {
     return NextResponse.next();
@@ -101,36 +89,26 @@ export async function middleware(request: NextRequest) {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     const userRole = payload.role as string;
 
-    // السائق: إذا دخل الصفحة الرئيسية → توجيه لصفحة السائق
-    if (userRole === "DRIVER" && (cleanPath === "/" || cleanPath === "")) {
-      return NextResponse.redirect(new URL("/Performance/driver", request.url));
-    }
+    const roleRules = cleanPath.startsWith("/api/")
+      ? API_ROLE_RULES
+      : PAGE_ROLE_RULES;
+    const requiredRoles = getRequiredRoles(cleanPath || "/", request.method, roleRules);
 
-    // السائق: حظر الوصول للصفحات الإدارية
-    if (userRole === "DRIVER") {
-      for (const blocked of DRIVER_BLOCKED_PATHS) {
-        if (cleanPath.startsWith(blocked)) {
-          if (cleanPath.startsWith("/api/")) {
-            return NextResponse.json(
-              { error: "ليس لديك صلاحية للوصول" },
-              { status: 403 }
-            );
-          }
-          return NextResponse.redirect(new URL("/Performance/driver", request.url));
-        }
+    if (requiredRoles && !hasRole(userRole, requiredRoles)) {
+      if (cleanPath.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "ليس لديك صلاحية للوصول" },
+          { status: 403 }
+        );
       }
+
+      return NextResponse.redirect(new URL(roleHomePath(userRole), request.url));
     }
 
-    // التحقق من الصلاحيات للمسارات المحمية
-    for (const [route, roles] of Object.entries(ROLE_ROUTES)) {
-      if (cleanPath.startsWith(route) && !roles.includes(userRole)) {
-        if (cleanPath.startsWith("/api/")) {
-          return NextResponse.json(
-            { error: "ليس لديك صلاحية للوصول" },
-            { status: 403 }
-          );
-        }
-        return NextResponse.redirect(new URL("/Performance", request.url));
+    if (!cleanPath.startsWith("/api/") && (cleanPath === "/" || cleanPath === "")) {
+      const home = roleHomePath(userRole);
+      if (home !== "/Performance") {
+        return NextResponse.redirect(new URL(home, request.url));
       }
     }
 

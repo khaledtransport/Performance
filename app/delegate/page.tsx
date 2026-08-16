@@ -8,24 +8,38 @@ export const dynamic = "force-dynamic";
 async function getRoutes(): Promise<RouteEntity[]> {
   const routes = await prisma.route.findMany({
     where: { isActive: true },
-    include: {
-      university: true,
-      driver: true,
+    select: {
+      id: true,
+      university: { select: { id: true, name: true } },
+      driver: { select: { id: true, name: true, phone: true } },
       bus: {
-        include: {
+        select: {
+          id: true,
+          busNumber: true,
+          capacity: true,
           districts: {
-            include: {
-              district: true,
-            },
+            select: { district: { select: { id: true, name: true } } },
           },
         },
       },
-      district: true,
+      district: { select: { id: true, name: true, description: true } },
     },
   });
 
-  // Transform to match RouteEntity interface
-  return JSON.parse(JSON.stringify(routes));
+  return routes.map((route) => ({
+    id: route.id,
+    university: route.university,
+    driver: route.driver,
+    bus: {
+      id: route.bus.id,
+      busNumber: route.bus.busNumber,
+      capacity: route.bus.capacity,
+    },
+    district: route.district,
+    districts: route.district
+      ? [route.district]
+      : route.bus.districts.map((item) => item.district),
+  }));
 }
 
 async function getDistricts(): Promise<District[]> {
@@ -35,7 +49,7 @@ async function getDistricts(): Promise<District[]> {
   return JSON.parse(JSON.stringify(districts));
 }
 
-async function getTodayTrips(): Promise<TripEntry[]> {
+async function getTodayTrips() {
   // Build UTC start/end of today
   const todayStr = new Date().toISOString().split("T")[0];
   const startDate = new Date(todayStr);
@@ -43,70 +57,36 @@ async function getTodayTrips(): Promise<TripEntry[]> {
   const endDate = new Date(todayStr);
   endDate.setUTCHours(23, 59, 59, 999);
 
-  // جلب من جدول RouteTrip (المصدر الرئيسي)
-  const routeTrips = await prisma.routeTrip.findMany({
+  return prisma.routeTrip.findMany({
     where: {
       tripDate: { gte: startDate, lte: endDate },
     },
-    include: {
-      route: {
-        include: {
-          university: true,
-          driver: true,
-          bus: {
-            include: {
-              districts: {
-                include: { district: true },
-              },
-            },
-          },
-          district: true,
-        },
-      },
+    select: {
+      id: true,
+      routeId: true,
+      tripDate: true,
+      direction: true,
+      tripTime: true,
+      studentsCount: true,
+      status: true,
     },
     orderBy: [{ tripDate: "desc" }, { tripTime: "asc" }],
   });
-
-  // تحويل البيانات للصيغة المطلوبة
-  const transformedTrips = routeTrips.map((rt) => {
-    const districtsFromBus =
-      rt.route?.bus?.districts?.map((d) => d.district) || [];
-    const district = rt.route?.district || districtsFromBus[0] || null;
-    const districts = rt.route?.district
-      ? [rt.route.district]
-      : districtsFromBus;
-
-    return {
-      id: rt.id,
-      routeId: rt.routeId,
-      tripDate: rt.tripDate.toISOString(),
-      direction: rt.direction,
-      tripTime: rt.tripTime,
-      studentsCount: rt.studentsCount,
-      status: rt.status,
-      source: "route_trips",
-      route: {
-        id: rt.route?.id,
-        university: rt.route?.university,
-        driver: rt.route?.driver,
-        bus: rt.route?.bus
-          ? { id: rt.route.bus.id, busNumber: rt.route.bus.busNumber }
-          : null,
-        district: district,
-        districts: districts,
-      },
-    };
-  });
-
-  return JSON.parse(JSON.stringify(transformedTrips));
 }
 
 export default async function DelegatePage() {
-  const [routes, districts, trips] = await Promise.all([
+  const [routes, districts, rawTrips] = await Promise.all([
     getRoutes(),
     getDistricts(),
     getTodayTrips(),
   ]);
+  const routeMap = new Map(routes.map((route) => [route.id, route]));
+  const trips: TripEntry[] = rawTrips.map((trip) => ({
+    ...trip,
+    tripDate: trip.tripDate.toISOString(),
+    source: "route_trips",
+    route: routeMap.get(trip.routeId) ?? null,
+  }));
 
   return (
     <DelegateClient

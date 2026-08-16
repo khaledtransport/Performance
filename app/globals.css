@@ -31,6 +31,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -53,6 +54,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -80,7 +82,19 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground transition-colors duration-300;
+    @apply bg-background text-foreground transition-colors duration-300 antialiased;
+    overflow-x: hidden;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  ::selection {
+    @apply bg-blue-200 text-slate-950 dark:bg-blue-800 dark:text-white;
   }
 }
 
@@ -139,6 +153,57 @@ html {
   animation: scale-in 0.3s ease-out;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Glassmorphism & UI Accents */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.glass-nav {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.dark .glass-nav {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.ui-card-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ui-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.03);
+}
+
+.dark .ui-card-hover:hover {
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+}
+
 /* Banner shrink animation */
 @keyframes shrink-width {
   from {
@@ -186,6 +251,49 @@ html {
 
 .dark ::-webkit-scrollbar-thumb {
   background: #475569;
+}
+
+/* Imported spreadsheet preview contains many compact cells; keep them legible
+   without duplicating dark variants on every generated table cell. */
+.dark .import-preview .bg-slate-100,
+.dark .import-preview .bg-slate-50 {
+  background-color: rgb(30 41 59);
+}
+
+.dark .import-preview .border-slate-200 {
+  border-color: rgb(51 65 85);
+}
+
+.dark .import-preview .text-slate-700,
+.dark .import-preview .text-slate-600,
+.dark .import-preview .text-slate-500 {
+  color: rgb(203 213 225);
+}
+
+/* The schedule has a dense matrix with status colors generated in code. */
+.dark .shift-schedule .bg-white {
+  background-color: rgb(15 23 42);
+}
+
+.dark .shift-schedule .bg-slate-50\/50,
+.dark .shift-schedule .bg-slate-50\/95,
+.dark .shift-schedule .bg-slate-50\/30 {
+  background-color: rgb(15 23 42 / 0.8);
+}
+
+.dark .shift-schedule .text-slate-900,
+.dark .shift-schedule .text-slate-800,
+.dark .shift-schedule .text-slate-600 {
+  color: rgb(226 232 240);
+}
+
+.dark .shift-schedule .text-slate-500 {
+  color: rgb(148 163 184);
+}
+
+.dark .shift-schedule .border-slate-100,
+.dark .shift-schedule .border-slate-200 {
+  border-color: rgb(51 65 85);
 }
 
 /* Leaflet map fixes */

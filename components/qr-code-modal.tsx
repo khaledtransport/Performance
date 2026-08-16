@@ -80,7 +80,7 @@ export default function QRCodeModal({ isOpen, onClose, busNumber, busId }: QRCod
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-sm w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* الهيدر */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">

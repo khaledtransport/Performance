@@ -1,6 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 const PWAInstallPrompt = dynamic(
   () => import("@/components/pwa-install").then((m) => m.PWAInstallPrompt),
@@ -16,11 +18,21 @@ const PushRegistration = dynamic(
 );
 
 export function PWAClientWrapper() {
+  const pathname = usePathname();
+  const { user, loading } = useAuth();
+  const appPath = pathname.replace(/^\/Performance(?=\/|$)/, "") || "/";
+  const canShowPrompts =
+    !loading && Boolean(user) && !["/login", "/offline"].includes(appPath);
+
   return (
     <>
-      <PWAInstallPrompt />
-      <PWAPermissionsPrompt />
-      <PushRegistration />
+      <PWAInstallPrompt allowPrompt={canShowPrompts} />
+      {canShowPrompts && (
+        <>
+          <PWAPermissionsPrompt />
+          <PushRegistration />
+        </>
+      )}
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { apiCache } from "@/lib/cache";
 
 // PUT: تحديث إشعار (قراءة)
 export async function PUT(
@@ -26,6 +27,7 @@ export async function PUT(
       return NextResponse.json({ error: "الإشعار غير موجود" }, { status: 404 });
     }
 
+    apiCache.invalidatePrefix("notifications:");
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Notification PUT error:", error);
@@ -52,6 +54,7 @@ export async function DELETE(
 
     const { id } = await params;
     await prisma.notification.delete({ where: { id } });
+    apiCache.invalidatePrefix("notifications:");
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Notification DELETE error:", error);

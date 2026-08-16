@@ -52,12 +52,12 @@ export function TodayTrips({ trips, loading, onRefresh }: TodayTripsProps) {
   };
 
   return (
-    <Card className="bg-white border-slate-200 shadow-sm mt-8">
+    <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm mt-8">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-slate-900">رحلات اليوم</CardTitle>
-            <CardDescription className="text-slate-600">
+            <CardTitle className="text-slate-900 dark:text-slate-100">رحلات اليوم</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-400">
               {dateString} - {trips.length} رحلة
             </CardDescription>
           </div>
@@ -66,7 +66,7 @@ export function TodayTrips({ trips, loading, onRefresh }: TodayTripsProps) {
             variant="outline"
             size="sm"
             disabled={loading}
-            className="bg-white border-slate-200 text-slate-900 hover:bg-slate-50"
+            className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             <RefreshCcw
               className={`w-4 h-4 ml-2 ${loading ? "animate-spin" : ""}`}
@@ -82,29 +82,29 @@ export function TodayTrips({ trips, loading, onRefresh }: TodayTripsProps) {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-200 text-right">
-                    <th className="pb-3 pr-2 font-semibold text-slate-600">
+                  <tr className="border-b border-slate-200 dark:border-slate-700 text-right">
+                    <th className="pb-3 pr-2 font-semibold text-slate-600 dark:text-slate-400">
                       الوقت
                     </th>
-                    <th className="pb-3 pr-2 font-semibold text-slate-600">
+                    <th className="pb-3 pr-2 font-semibold text-slate-600 dark:text-slate-400">
                       الاتجاه
                     </th>
-                    <th className="pb-3 pr-2 font-semibold text-slate-600">
+                    <th className="pb-3 pr-2 font-semibold text-slate-600 dark:text-slate-400">
                       الجامعة
                     </th>
-                    <th className="pb-3 pr-2 font-semibold text-slate-600">
+                    <th className="pb-3 pr-2 font-semibold text-slate-600 dark:text-slate-400">
                       الحي
                     </th>
-                    <th className="pb-3 pr-2 font-semibold text-slate-600">
+                    <th className="pb-3 pr-2 font-semibold text-slate-600 dark:text-slate-400">
                       الباص
                     </th>
-                    <th className="pb-3 pr-2 font-semibold text-slate-600">
+                    <th className="pb-3 pr-2 font-semibold text-slate-600 dark:text-slate-400">
                       السائق
                     </th>
-                    <th className="pb-3 pr-2 font-semibold text-slate-600">
+                    <th className="pb-3 pr-2 font-semibold text-slate-600 dark:text-slate-400">
                       الطلاب
                     </th>
-                    <th className="pb-3 pr-2 font-semibold text-slate-600">
+                    <th className="pb-3 pr-2 font-semibold text-slate-600 dark:text-slate-400">
                       الحالة
                     </th>
                   </tr>
@@ -113,9 +113,9 @@ export function TodayTrips({ trips, loading, onRefresh }: TodayTripsProps) {
                   {trips.map((trip) => (
                     <tr
                       key={trip.id}
-                      className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                      className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                     >
-                      <td className="py-3 pr-2 text-slate-700 font-medium">
+                      <td className="py-3 pr-2 text-slate-700 dark:text-slate-300 font-medium">
                         {trip.tripTime}
                       </td>
                       <td className="py-3 pr-2">
@@ -129,23 +129,23 @@ export function TodayTrips({ trips, loading, onRefresh }: TodayTripsProps) {
                           {trip.direction === "GO" ? "ذهاب" : "عودة"}
                         </span>
                       </td>
-                      <td className="py-3 pr-2 text-slate-700">
+                      <td className="py-3 pr-2 text-slate-700 dark:text-slate-300">
                         {trip.route?.university?.name ?? "-"}
                       </td>
-                      <td className="py-3 pr-2 text-slate-700">
+                      <td className="py-3 pr-2 text-slate-700 dark:text-slate-300">
                         {(trip.route?.districts?.length ?? 0) > 0
                           ? (trip.route?.districts ?? [])
                               .map((d: { name: string }) => d.name)
                               .join("، ")
                           : trip.route?.district?.name ?? "-"}
                       </td>
-                      <td className="py-3 pr-2 text-slate-700">
+                      <td className="py-3 pr-2 text-slate-700 dark:text-slate-300">
                         {trip.route?.bus?.busNumber ?? "-"}
                       </td>
-                      <td className="py-3 pr-2 text-slate-700">
+                      <td className="py-3 pr-2 text-slate-700 dark:text-slate-300">
                         {trip.route?.driver?.name ?? "-"}
                       </td>
-                      <td className="py-3 pr-2 text-slate-700 font-bold">
+                      <td className="py-3 pr-2 text-slate-700 dark:text-slate-300 font-bold">
                         {trip.studentsCount}
                       </td>
                       <td className="py-3 pr-2">
@@ -170,8 +170,8 @@ export function TodayTrips({ trips, loading, onRefresh }: TodayTripsProps) {
           </>
         ) : (
           <div className="text-center py-12">
-            <XCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-600">لا توجد رحلات مسجلة اليوم</p>
+            <XCircle className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
+            <p className="text-slate-600 dark:text-slate-400">لا توجد رحلات مسجلة اليوم</p>
           </div>
         )}
       </CardContent>

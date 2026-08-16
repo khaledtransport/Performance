@@ -54,11 +54,12 @@ export default function BusesPage() {
   const fetchBuses = async () => {
     try {
       const res = await fetch("/Performance/api/buses");
+      if (!res.ok) throw new Error(`فشل التحميل: ${res.status}`);
       const data = await res.json();
       setBuses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("خطأ في جلب الحافلات:", error);
-      setBuses([]);
+      toast({ title: "تعذر التحميل", description: "فشل تحميل الحافلات. حاول مجدداً.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -67,10 +68,12 @@ export default function BusesPage() {
   const fetchDistricts = async () => {
     try {
       const res = await fetch("/Performance/api/districts");
+      if (!res.ok) throw new Error(`فشل التحميل: ${res.status}`);
       const data = await res.json();
       setDistricts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("خطأ في جلب الأحياء:", error);
+      toast({ title: "تعذر التحميل", description: "فشل تحميل قائمة الأحياء.", variant: "destructive" });
     }
   };
 
@@ -155,7 +158,7 @@ export default function BusesPage() {
   if (loading) return <div className="p-8 text-center">جاري التحميل...</div>;
 
   return (
-    <div className="p-8" dir="rtl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8" dir="rtl">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* قائمة الباصات */}
         <div className="space-y-4">
@@ -163,11 +166,11 @@ export default function BusesPage() {
             الحافلات المسجلة ({buses.length})
           </h2>
           {buses.map((bus) => (
-            <Card key={bus.id} className="bg-white">
-              <CardContent className="p-4 flex justify-between items-center">
+            <Card key={bus.id} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+              <CardContent className="p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                 <div>
                   <h3 className="font-bold text-lg">{bus.busNumber}</h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     السعة: {bus.capacity} راكب
                   </p>
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -175,13 +178,13 @@ export default function BusesPage() {
                       bus.districts.map((d) => (
                         <span
                           key={d.id}
-                          className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded"
+                          className="text-xs bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded"
                         >
                           {d.district.name}
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         لا يوجد أحياء
                       </span>
                     )}
@@ -221,7 +224,7 @@ export default function BusesPage() {
 
         {/* نموذج الإضافة/التعديل */}
         <div>
-          <Card>
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Plus className="w-5 h-5" />
@@ -257,7 +260,7 @@ export default function BusesPage() {
 
                 <div className="space-y-2">
                   <Label>الأحياء (اختياري)</Label>
-                  <div className="border rounded-md p-3 max-h-60 overflow-y-auto space-y-2 bg-white">
+                  <div className="border border-slate-200 dark:border-slate-700 rounded-md p-3 max-h-60 overflow-y-auto space-y-2 bg-white dark:bg-slate-950">
                     {districts.length > 0 ? (
                       districts.map((district) => (
                         <div
@@ -273,19 +276,19 @@ export default function BusesPage() {
                           />
                           <label
                             htmlFor={`district-${district.id}`}
-                            className="text-sm text-gray-700 cursor-pointer select-none flex-1"
+                            className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none flex-1"
                           >
                             {district.name}
                           </label>
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-gray-500 text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
                         لا توجد أحياء مسجلة
                       </p>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     يمكنك اختيار أكثر من حي للحافلة الواحدة
                   </p>
                 </div>

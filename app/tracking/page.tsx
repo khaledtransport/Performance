@@ -53,6 +53,7 @@ interface BusLocationData {
 export default function TrackingPage() {
   const [locations, setLocations] = useState<BusLocationData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [selectedBus, setSelectedBus] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [sseConnected, setSseConnected] = useState(false);
@@ -61,16 +62,18 @@ export default function TrackingPage() {
 
   // جلب يدوي (زر التحديث)
   const fetchLocations = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await fetch(`/Performance/api/tracking?ts=${Date.now()}`, {
         cache: "no-store",
       });
-      if (res.ok) {
-        const data = await res.json();
-        setLocations(data);
-      }
+      if (!res.ok) throw new Error(`فشل تحميل التتبع: ${res.status}`);
+      const data = await res.json();
+      setLocations(data);
+      setError("");
     } catch (error) {
       console.error("Failed to fetch locations:", error);
+      setError("تعذر تحميل مواقع الباصات. سيستمر النظام بمحاولة الاتصال.");
     } finally {
       setLoading(false);
     }
@@ -79,12 +82,7 @@ export default function TrackingPage() {
   // mounted: يُفعَّل مرة واحدة بعد أول render على الـ client
   useEffect(() => { setMounted(true); }, []);
 
-  // جلب أولي فوري
-  useEffect(() => {
-    fetchLocations();
-  }, [fetchLocations]);
-
-  // SSE — اتصال دائم يستقبل التحديثات (يحل محل polling كل 2 ثانية)
+  // SSE يرسل دفعة فورية عند الاتصال، لذلك لا نكرر طلب GET عند فتح الصفحة.
   useEffect(() => {
     if (!autoRefresh) {
       setSseConnected(false);
@@ -93,6 +91,8 @@ export default function TrackingPage() {
 
     let es: EventSource | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let receivedData = false;
+    let fallbackRequested = false;
 
     const connect = () => {
       es = new EventSource("/Performance/api/tracking/stream");
@@ -102,7 +102,9 @@ export default function TrackingPage() {
       es.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          receivedData = true;
           setLocations(data);
+          setError("");
           setLoading(false);
         } catch { /* تجاهل JSON غير صالح */ }
       };
@@ -110,6 +112,10 @@ export default function TrackingPage() {
       es.onerror = () => {
         setSseConnected(false);
         es?.close();
+        if (!receivedData && !fallbackRequested) {
+          fallbackRequested = true;
+          void fetchLocations();
+        }
         // إعادة الاتصال بعد ثانيتين (EventSource يعيد تلقائياً لكن نضبط التأخير)
         reconnectTimer = setTimeout(connect, 2000);
       };
@@ -122,7 +128,7 @@ export default function TrackingPage() {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       setSseConnected(false);
     };
-  }, [autoRefresh]);
+  }, [autoRefresh, fetchLocations]);
 
   const onlineBuses = locations.filter((l) => l.isOnline);
   const offlineBuses = locations.filter((l) => !l.isOnline);
@@ -183,6 +189,16 @@ export default function TrackingPage() {
             </Button>
           </div>
         </div>
+
+        {error && (
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/50 p-4 text-red-700 dark:text-red-300">
+            <div className="flex items-center gap-2">
+              <WifiOff className="w-5 h-5 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchLocations}>إعادة المحاولة</Button>
+          </div>
+        )}
 
         {/* إحصائيات سريعة */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

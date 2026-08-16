@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationCenter } from "@/components/notification-center";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
+import { ROLE_LABELS, UserRole, isUserRole } from "@/lib/rbac";
 import {
   BarChart3, Menu, X, LayoutDashboard, Settings, Users, Bus,
   MapPin, Clock, Home, Calendar, Navigation, FileText,
@@ -34,8 +35,7 @@ const driverNavigationItems: NavigationItem[] = [
   },
 ];
 
-// القائمة الكاملة للإدارة
-const fullNavigationItems: NavigationItem[] = [
+const adminNavigationItems: NavigationItem[] = [
   {
     label: "الرئيسية",
     href: "/",
@@ -72,6 +72,42 @@ const fullNavigationItems: NavigationItem[] = [
     href: "/admin",
     icon: <Settings className="w-4 h-4" />,
     category: "admin",
+  },
+];
+
+const delegateNavigationItems: NavigationItem[] = [
+  {
+    label: "لوحة التحكم",
+    href: "/dashboard",
+    icon: <LayoutDashboard className="w-4 h-4" />,
+  },
+  {
+    label: "التقويم",
+    href: "/dashboard/calendar",
+    icon: <Calendar className="w-4 h-4" />,
+  },
+  {
+    label: "تسجيل الرحلات",
+    href: "/delegate",
+    icon: <Clock className="w-4 h-4" />,
+  },
+];
+
+const viewerNavigationItems: NavigationItem[] = [
+  {
+    label: "لوحة التحكم",
+    href: "/dashboard",
+    icon: <LayoutDashboard className="w-4 h-4" />,
+  },
+  {
+    label: "التقارير",
+    href: "/reports",
+    icon: <FileText className="w-4 h-4" />,
+  },
+  {
+    label: "تتبع الباصات",
+    href: "/tracking",
+    icon: <Navigation className="w-4 h-4" />,
   },
 ];
 
@@ -118,9 +154,30 @@ const adminItems: NavigationItem[] = [
   },
 ];
 
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "مدير النظام", MANAGER: "مدير", DELEGATE: "مندوب", DRIVER: "سائق", VIEWER: "مشاهد",
-};
+function getNavigationItems(role: string | undefined): NavigationItem[] {
+  if (!isUserRole(role)) return [];
+
+  const navByRole: Record<UserRole, NavigationItem[]> = {
+    ADMIN: adminNavigationItems,
+    MANAGER: adminNavigationItems,
+    DELEGATE: delegateNavigationItems,
+    DRIVER: driverNavigationItems,
+    VIEWER: viewerNavigationItems,
+  };
+
+  return navByRole[role];
+}
+
+function getHomeHref(role: string | undefined) {
+  if (role === "DRIVER") return "/driver";
+  if (role === "DELEGATE") return "/delegate";
+  if (role === "VIEWER" || role === "MANAGER") return "/dashboard";
+  return "/";
+}
+
+function getRoleLabel(role: string) {
+  return isUserRole(role) ? ROLE_LABELS[role] : role;
+}
 
 export function NavigationBar() {
   const pathname = usePathname();
@@ -128,7 +185,7 @@ export function NavigationBar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAdminDropdown, setShowAdminDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const adminRef = useRef<HTMLDivElement>(null);
   const mobileAdminRef = useRef<HTMLDivElement>(null);
   const userRef  = useRef<HTMLDivElement>(null);
@@ -163,9 +220,7 @@ export function NavigationBar() {
 
   if (pathname === "/login" || pathname === "/Performance/login") return null;
 
-  // Use full nav on SSR to match server render; switch to role-based after mount
-  const isDriver = mounted && user?.role === "DRIVER";
-  const navigationItems = isDriver ? driverNavigationItems : fullNavigationItems;
+  const navigationItems = mounted && !loading ? getNavigationItems(user?.role) : [];
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/" || pathname === "/Performance" || pathname === "/Performance/";
@@ -185,7 +240,7 @@ export function NavigationBar() {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 group">
+            <Link href={getHomeHref(user?.role)} className="flex items-center gap-2 group">
               <div className="p-2 bg-linear-to-br from-blue-500 to-blue-700 rounded-lg group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all">
                 <BarChart3 className="w-5 h-5 text-white" />
               </div>
@@ -252,14 +307,14 @@ export function NavigationBar() {
             </div>
 
             {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <NotificationCenter />
               <ThemeToggle />
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="md:hidden text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 {mobileMenuOpen ? (
                   <X className="w-5 h-5" />
@@ -271,8 +326,6 @@ export function NavigationBar() {
 
             {/* Desktop Toolbar */}
             <div className="hidden md:flex items-center gap-2">
-              <NotificationCenter />
-              <ThemeToggle />
               {user && (
                 <div className="relative" ref={userRef}>
                   <button
@@ -292,7 +345,7 @@ export function NavigationBar() {
                       <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
                         <p className="text-sm font-bold text-slate-800 dark:text-white truncate">{user.fullName}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          {ROLE_LABELS[user.role] ?? user.role}
+                          {getRoleLabel(user.role)}
                         </p>
                       </div>
                       <button
@@ -326,7 +379,7 @@ export function NavigationBar() {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-800 dark:text-white">{user.fullName}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{ROLE_LABELS[user.role] ?? user.role}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{getRoleLabel(user.role)}</p>
                   </div>
                 </div>
                 <button onClick={() => { setMobileMenuOpen(false); logout(); }}

@@ -9,19 +9,57 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-export function PWAInstallPrompt() {
+export function PWAInstallPrompt({ allowPrompt = true }: { allowPrompt?: boolean }) {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // تسجيل Service Worker
+    if (!("serviceWorker" in navigator)) return;
+
+    if (process.env.NODE_ENV !== "production") {
+      const cleanupKey = "performance-dev-cache-cleaned-v2";
+      Promise.all([
+        navigator.serviceWorker.getRegistrations(),
+        typeof caches !== "undefined" ? caches.keys() : Promise.resolve([]),
+      ])
+        .then(async ([registrations, cacheKeys]) => {
+          const appRegistrations = registrations.filter((registration) =>
+            registration.scope.includes("/Performance")
+          );
+          const appCacheKeys = cacheKeys.filter((key) =>
+            key.startsWith("university-transport-")
+          );
+          const hadStaleWorker = Boolean(navigator.serviceWorker.controller) ||
+            appRegistrations.length > 0 || appCacheKeys.length > 0;
+
+          await Promise.all([
+            ...appRegistrations.map((registration) => registration.unregister()),
+            ...appCacheKeys.map((key) => caches.delete(key)),
+          ]);
+
+          if (hadStaleWorker && !sessionStorage.getItem(cleanupKey)) {
+            sessionStorage.setItem(cleanupKey, "1");
+            window.location.reload();
+          }
+        })
+        .catch((err) => console.warn("SW cleanup failed:", err));
+      return;
+    }
+
+    // تسجيل Service Worker في الإنتاج فقط
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/Performance/sw.js", { updateViaCache: "none" })
         .then((registration) => registration.update())
         .catch((err) => console.log("SW registration failed:", err));
+    }
+
+    if (!allowPrompt) {
+      setShowPrompt(false);
+      setDeferredPrompt(null);
+      return;
     }
 
     const handler = (e: Event) => {
@@ -33,7 +71,7 @@ export function PWAInstallPrompt() {
 
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
+  }, [allowPrompt]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -54,7 +92,7 @@ export function PWAInstallPrompt() {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 animate-slide-up">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-4">
         <div className="flex items-start gap-3">
           <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-xl shrink-0">
             <Download className="w-6 h-6 text-blue-600 dark:text-blue-400" />

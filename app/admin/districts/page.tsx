@@ -30,11 +30,12 @@ export default function DistrictsPage() {
   const fetchDistricts = async () => {
     try {
       const res = await fetch("/Performance/api/districts");
+      if (!res.ok) throw new Error(`فشل التحميل: ${res.status}`);
       const data = await res.json();
       setDistricts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("خطأ في جلب الأحياء:", error);
-      setDistricts([]);
+      toast({ title: "تعذر التحميل", description: "فشل تحميل الأحياء. حاول مجدداً.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -98,14 +99,14 @@ export default function DistrictsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8" dir="rtl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8" dir="rtl">
       <div className="max-w-6xl mx-auto">
         <div className="grid md:grid-cols-2 gap-8">
           {/* Form */}
-          <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all">
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-slate-900">
-                <div className="p-2 bg-cyan-50 rounded-lg">
+              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                <div className="p-2 bg-cyan-50 dark:bg-cyan-950 rounded-lg">
                   <MapPin className="w-5 h-5 text-cyan-600" />
                 </div>
                 {editingId ? "تعديل حي" : "إضافة حي جديد"}
@@ -114,7 +115,7 @@ export default function DistrictsPage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="name" className="text-slate-600">
+                  <Label htmlFor="name" className="text-slate-600 dark:text-slate-300">
                     اسم الحي
                   </Label>
                   <Input
@@ -125,12 +126,12 @@ export default function DistrictsPage() {
                     }
                     placeholder="مثال: حي الروضة"
                     required
-                    className="bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-500 focus:ring-cyan-500"
+                    className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-cyan-500 focus:ring-cyan-500"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="description" className="text-slate-600">
+                  <Label htmlFor="description" className="text-slate-600 dark:text-slate-300">
                     الوصف (اختياري)
                   </Label>
                   <Input
@@ -140,7 +141,7 @@ export default function DistrictsPage() {
                       setFormData({ ...formData, description: e.target.value })
                     }
                     placeholder="وصف الحي..."
-                    className="bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-500 focus:ring-cyan-500"
+                    className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-cyan-500 focus:ring-cyan-500"
                   />
                 </div>
 
@@ -154,7 +155,7 @@ export default function DistrictsPage() {
                   {editingId && (
                     <Button
                       type="button"
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+                      className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
                       onClick={() => {
                         setFormData({ name: "", description: "" });
                         setEditingId(null);
@@ -169,9 +170,9 @@ export default function DistrictsPage() {
           </Card>
 
           {/* List */}
-          <Card className="bg-white border-slate-200 shadow-sm">
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-slate-900">
+              <CardTitle className="text-slate-900 dark:text-slate-100">
                 الأحياء المسجلة ({districts.length})
               </CardTitle>
             </CardHeader>
@@ -189,10 +190,10 @@ export default function DistrictsPage() {
                   {districts.map((district) => (
                     <div
                       key={district.id}
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-all"
+                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     >
                       <div className="flex-1">
-                        <p className="font-medium text-slate-900">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">
                           {district.name}
                         </p>
                         {district.description && (

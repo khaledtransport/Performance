@@ -213,21 +213,21 @@ export default function RoutesPage() {
     buses.find((b) => b.id === id)?.busNumber || "غير معروفة";
 
   if (loading)
-    return <div className="p-8 text-center text-blue-300">جاري التحميل...</div>;
+    return <div className="p-8 text-center text-blue-600 dark:text-blue-400">جاري التحميل...</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8" dir="rtl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8" dir="rtl">
       <div className="max-w-6xl mx-auto">
         {error && (
-          <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded mb-4 backdrop-blur">
+          <div className="bg-red-50 dark:bg-red-950/50 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded mb-4">
             {error}
           </div>
         )}
 
-        <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all mb-8">
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all mb-8">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-slate-900">
-              <div className="p-2 bg-indigo-50 rounded-lg">
+            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-950 rounded-lg">
                 <Plus className="w-5 h-5 text-indigo-600" />
               </div>
               إضافة طريق جديد
@@ -235,14 +235,14 @@ export default function RoutesPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAdd} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Select
                   value={formData.universityId}
                   onValueChange={(value) =>
                     setFormData({ ...formData, universityId: value })
                   }
                 >
-                  <SelectTrigger className="bg-white border-slate-200 text-slate-900">
+                  <SelectTrigger className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
                     <SelectValue placeholder="اختر جامعة" />
                   </SelectTrigger>
                   <SelectContent>
@@ -260,7 +260,7 @@ export default function RoutesPage() {
                     setFormData({ ...formData, driverId: value })
                   }
                 >
-                  <SelectTrigger className="bg-white border-slate-200 text-slate-900">
+                  <SelectTrigger className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
                     <SelectValue placeholder="اختر سائق" />
                   </SelectTrigger>
                   <SelectContent>
@@ -278,7 +278,7 @@ export default function RoutesPage() {
                     setFormData({ ...formData, busId: value })
                   }
                 >
-                  <SelectTrigger className="bg-white border-slate-200 text-slate-900">
+                  <SelectTrigger className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
                     <SelectValue placeholder="اختر باص" />
                   </SelectTrigger>
                   <SelectContent>
@@ -302,24 +302,24 @@ export default function RoutesPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-slate-200 shadow-sm">
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-slate-900">
+            <CardTitle className="text-slate-900 dark:text-slate-100">
               الطرق الموجودة ({routes.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {routes.length === 0 ? (
-                <p className="text-blue-300 text-center py-8">لا توجد طرق</p>
+                <p className="text-slate-500 dark:text-slate-400 text-center py-8">لا توجد طرق</p>
               ) : (
                 routes.map((route) => (
                   <div
                     key={route.id}
-                    className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-all"
+                    className="flex items-center justify-between gap-3 p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
                     <div className="flex-1">
-                      <p className="font-semibold text-slate-900">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">
                         {getUniName(route.universityId)}
                       </p>
                       <p className="text-sm text-slate-500">

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiCache } from "@/lib/cache";
-import { getCurrentUser } from "@/lib/auth";
+import { requireApiRole } from "@/lib/api-auth";
+import { TRACKING_VIEW_ROLES, UserRole } from "@/lib/rbac";
 import { z } from "zod";
 
 // مخطط Zod للتحقق من مدخلات POST
@@ -31,9 +32,47 @@ type LatestPoint = {
   timestamp: Date;
 };
 
+const TRACKING_WRITE_ROLES: readonly UserRole[] = ["DRIVER", "ADMIN", "MANAGER"];
+
+async function requireTrackingWriteAccess(busId: string) {
+  const auth = await requireApiRole(TRACKING_WRITE_ROLES);
+  if (auth.response) return auth;
+
+  if (auth.user.role !== "DRIVER") {
+    return auth;
+  }
+
+  const assignment = await prisma.busDriverAssignment.findFirst({
+    where: {
+      busId,
+      isActive: true,
+      driver: {
+        user: {
+          id: auth.user.userId,
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  if (!assignment) {
+    return {
+      response: NextResponse.json(
+        { error: "لا يمكنك تحديث تتبع باص غير مخصص لك" },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return auth;
+}
+
 // GET: الحصول على مواقع الباصات الحالية
 export async function GET(request: Request) {
   try {
+    const auth = await requireApiRole(TRACKING_VIEW_ROLES);
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const busId = searchParams.get("busId");
 
@@ -227,7 +266,9 @@ export async function PATCH(request: Request) {
       );
     }
     const { busId, action } = parsed.data;
-    const currentUser = await getCurrentUser();
+    const auth = await requireTrackingWriteAccess(busId);
+    if (auth.response) return auth.response;
+    const currentUser = auth.user;
 
     const bus = await prisma.bus.findUnique({
       where: { id: busId },
@@ -275,6 +316,7 @@ export async function PATCH(request: Request) {
     const driverUsername = currentUser?.username || assignedDriver?.user?.username || "-";
     const driverPhone = assignedDriver?.phone || "-";
     const districtName = bus.districts[0]?.district?.name || "غير محدد";
+    const now = new Date();
 
     const notifyAdmins = async (status: "ACTIVE" | "ENDED") => {
       const adminUsers = await prisma.user.findMany({
@@ -306,13 +348,11 @@ export async function PATCH(request: Request) {
           type: "TRIP_UPDATE",
           priority: isStart ? "NORMAL" : "HIGH",
           soundType: isStart ? "default" : "alert",
-          senderId: currentUser?.userId || assignedDriver?.user?.id || null,
+          senderId: currentUser.userId || assignedDriver?.user?.id || null,
           link: "/Performance/dashboard",
         })),
       });
     };
-
-    const now = new Date();
 
     if (action === "stop") {
       await prisma.trackingSession.updateMany({
@@ -411,6 +451,8 @@ export async function POST(request: Request) {
     }
 
     const { busId, latitude, longitude, speed, heading, accuracy } = parsed.data;
+    const auth = await requireTrackingWriteAccess(busId);
+    if (auth.response) return auth.response;
 
     // التحقق من وجود الباص
     const bus = await prisma.bus.findUnique({ where: { id: busId } });

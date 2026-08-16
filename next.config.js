@@ -5,6 +5,7 @@ const nextConfig = {
   reactStrictMode: true,
   basePath: "/Performance",
   output: "standalone",
+  agentRules: false,
 
   typescript: {
     // فحص TypeScript مفعّل — الأخطاء توقف البناء
@@ -77,7 +78,12 @@ const nextConfig = {
   },
 };
 
-module.exports = withSentryConfig(nextConfig, {
+const sentryBuildEnabled =
+  process.env.SENTRY_AUTH_TOKEN ||
+  process.env.NEXT_PUBLIC_SENTRY_DSN ||
+  process.env.ENABLE_SENTRY === "true";
+
+const sentryOptions = {
   // تحميل خرائط المصدر تلقائياً إلى Sentry
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
@@ -93,4 +99,8 @@ module.exports = withSentryConfig(nextConfig, {
 
   // تعطيل تحميل المصدر إذا لا يوجد token
   ...(process.env.SENTRY_AUTH_TOKEN ? {} : { sourcemaps: { disable: true } }),
-});
+};
+
+module.exports = sentryBuildEnabled
+  ? withSentryConfig(nextConfig, sentryOptions)
+  : nextConfig;

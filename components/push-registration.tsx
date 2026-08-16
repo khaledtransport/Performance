@@ -21,6 +21,7 @@ export function PushRegistration() {
   const ensurePushSubscription = useCallback(async () => {
     if (!user || inFlight.current) return;
     if (typeof window === "undefined") return;
+    if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     if (Notification.permission !== "granted") return;
 

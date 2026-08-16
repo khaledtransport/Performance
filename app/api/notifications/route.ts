@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToUsers } from "@/lib/web-push";
+import { apiCache } from "@/lib/cache";
 
 // GET: جلب الإشعارات
 export async function GET(request: Request) {
@@ -14,8 +15,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = currentUser.userId;
     const unreadOnly = searchParams.get("unread") === "true";
-    const limit = parseInt(searchParams.get("limit") || "20");
-    const page = parseInt(searchParams.get("page") || "1");
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
 
     const where: Record<string, unknown> = {};
     if (userId) {
@@ -25,7 +26,13 @@ export async function GET(request: Request) {
       where.isRead = false;
     }
 
-    const [notifications, total, unreadCount] = await Promise.all([
+    const cacheKey = `notifications:${userId}:${unreadOnly}:${limit}:${page}`;
+    const cached = apiCache.get<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, { headers: { "X-Cache": "HIT" } });
+    }
+
+    const [notifications, readStateCounts] = await Promise.all([
       prisma.notification.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -33,19 +40,29 @@ export async function GET(request: Request) {
         skip: (page - 1) * limit,
         include: { user: { select: { fullName: true } } },
       }),
-      prisma.notification.count({ where }),
-      prisma.notification.count({
-        where: { ...where, isRead: false },
+      prisma.notification.groupBy({
+        by: ["isRead"],
+        where,
+        _count: { _all: true },
       }),
     ]);
 
-    return NextResponse.json({
+    const total = readStateCounts.reduce(
+      (sum, row) => sum + row._count._all,
+      0,
+    );
+    const unreadCount =
+      readStateCounts.find((row) => !row.isRead)?._count._all ?? 0;
+
+    const response = {
       notifications,
       total,
       unreadCount,
       page,
       totalPages: Math.ceil(total / limit),
-    });
+    };
+    apiCache.set(cacheKey, response, 5_000);
+    return NextResponse.json(response, { headers: { "X-Cache": "MISS" } });
   } catch (error) {
     console.error("Notifications GET error:", error);
     return NextResponse.json(
@@ -96,6 +113,7 @@ export async function POST(request: Request) {
           link: link || null,
         })),
       });
+      apiCache.invalidatePrefix("notifications:");
 
       try {
         await sendPushToUsers(
@@ -131,6 +149,7 @@ export async function POST(request: Request) {
           link: link || null,
         })),
       });
+      apiCache.invalidatePrefix("notifications:");
 
       try {
         await sendPushToUsers(body.driverIds, {
@@ -162,6 +181,7 @@ export async function POST(request: Request) {
         link: link || null,
       },
     });
+    apiCache.invalidatePrefix("notifications:");
 
     if (userId) {
       try {
@@ -224,6 +244,7 @@ export async function PUT(request: Request) {
       where,
       data: { isRead: true },
     });
+    apiCache.invalidatePrefix("notifications:");
 
     return NextResponse.json({ success: true, message: "تم تحديث جميع الإشعارات" });
   } catch (error) {

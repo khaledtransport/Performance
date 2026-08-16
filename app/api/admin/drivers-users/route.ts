@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/api-auth";
+import { ADMIN_ROLES } from "@/lib/rbac";
 
 // GET: جلب المستخدمين من نوع سائق
 export async function GET() {
   try {
+    const auth = await requireApiRole(ADMIN_ROLES);
+    if (auth.response) return auth.response;
+
     const drivers = await prisma.user.findMany({
       where: { role: "DRIVER", isActive: true },
       select: {

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Bell,
   Send,
@@ -81,6 +82,7 @@ const SOUND_TYPES = [
 ];
 
 export default function AdminNotificationsPage() {
+  const { toast } = useToast();
   const [drivers, setDrivers] = useState<DriverUser[]>([]);
   const [sentNotifications, setSentNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -105,12 +107,12 @@ export default function AdminNotificationsPage() {
   const fetchDrivers = useCallback(async () => {
     try {
       const res = await fetch("/Performance/api/admin/drivers-users");
-      if (res.ok) {
-        const data = await res.json();
-        setDrivers(data.drivers || []);
-      }
-    } catch {
-      // صامت
+      if (!res.ok) throw new Error(`فشل تحميل السائقين: ${res.status}`);
+      const data = await res.json();
+      setDrivers(data.drivers || []);
+    } catch (error) {
+      console.error("Drivers fetch error:", error);
+      toast({ title: "تعذر تحميل السائقين", description: "أعد المحاولة بعد التحقق من الاتصال.", variant: "destructive" });
     }
   }, []);
 
@@ -119,12 +121,12 @@ export default function AdminNotificationsPage() {
     setLoadingHistory(true);
     try {
       const res = await fetch("/Performance/api/notifications?limit=50");
-      if (res.ok) {
-        const data = await res.json();
-        setSentNotifications(data.notifications || []);
-      }
-    } catch {
-      // صامت
+      if (!res.ok) throw new Error(`فشل تحميل الإشعارات: ${res.status}`);
+      const data = await res.json();
+      setSentNotifications(data.notifications || []);
+    } catch (error) {
+      console.error("Notifications fetch error:", error);
+      toast({ title: "تعذر تحميل سجل الإشعارات", variant: "destructive" });
     } finally {
       setLoadingHistory(false);
     }
@@ -177,9 +179,13 @@ export default function AdminNotificationsPage() {
           setSent(false);
           fetchHistory();
         }, 3000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `فشل إرسال الإشعار: ${res.status}`);
       }
     } catch (err) {
       console.error("Send error:", err);
+      toast({ title: "تعذر إرسال الإشعار", description: err instanceof Error ? err.message : "حدث خطأ غير متوقع", variant: "destructive" });
     } finally {
       setSending(false);
     }
@@ -230,10 +236,12 @@ export default function AdminNotificationsPage() {
   // حذف إشعار
   const deleteNotification = async (id: string) => {
     try {
-      await fetch(`/Performance/api/notifications/${id}`, { method: "DELETE" });
+      const res = await fetch(`/Performance/api/notifications/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`فشل حذف الإشعار: ${res.status}`);
       setSentNotifications((prev) => prev.filter((n) => n.id !== id));
-    } catch {
-      // صامت
+    } catch (error) {
+      console.error("Delete notification error:", error);
+      toast({ title: "تعذر حذف الإشعار", variant: "destructive" });
     }
   };
 
@@ -243,7 +251,7 @@ export default function AdminNotificationsPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-linear-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/30">
+            <div className="p-3 bg-blue-600 rounded-lg shadow-sm">
               <Megaphone className="w-7 h-7 text-white" />
             </div>
             <div>
@@ -258,7 +266,7 @@ export default function AdminNotificationsPage() {
           <div className="lg:col-span-3 space-y-6">
             {/* رسالة النجاح */}
             {sent && (
-              <div className="bg-green-50 dark:bg-green-950/50 border-2 border-green-300 dark:border-green-700 rounded-2xl p-4 flex items-center gap-3 animate-in slide-in-from-top-2">
+              <div className="bg-green-50 dark:bg-green-950/50 border border-green-300 dark:border-green-700 rounded-lg p-4 flex items-center gap-3 animate-in slide-in-from-top-2">
                 <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shrink-0">
                   <Check className="w-5 h-5 text-white" />
                 </div>

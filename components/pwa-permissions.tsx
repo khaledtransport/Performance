@@ -115,7 +115,7 @@ export function PWAPermissionsPrompt() {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-107.5 z-50 animate-slide-up">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-4">
         <div className="flex items-start gap-3">
           <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-xl shrink-0">
             <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />

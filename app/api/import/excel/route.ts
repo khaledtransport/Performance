@@ -1,16 +1,84 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
-import * as XLSX from "xlsx";
+import { requireApiRole } from "@/lib/api-auth";
+import { ADMIN_ROLES } from "@/lib/rbac";
+import { readSheet } from "read-excel-file/node";
+
+const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+
+type ImportRow = Record<string, string | number | boolean | Date | null>;
+
+function parseCsvRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let value = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      value += '"';
+      i++;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(value.trim());
+      value = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") i++;
+      row.push(value.trim());
+      if (row.some((cell) => cell.length > 0)) rows.push(row);
+      row = [];
+      value = "";
+      continue;
+    }
+
+    value += char;
+  }
+
+  row.push(value.trim());
+  if (row.some((cell) => cell.length > 0)) rows.push(row);
+  return rows;
+}
+
+function rowsToObjects(rows: unknown[][]): ImportRow[] {
+  const [headersRow, ...bodyRows] = rows;
+  if (!headersRow) return [];
+
+  const headers = headersRow.map((header) => String(header ?? "").trim());
+
+  return bodyRows
+    .map((row) => {
+      const record: ImportRow = {};
+      headers.forEach((header, index) => {
+        if (header) record[header] = (row[index] ?? null) as ImportRow[string];
+      });
+      return record;
+    })
+    .filter((row) => Object.values(row).some((value) => value !== null && String(value).trim() !== ""));
+}
+
+function cellText(value: ImportRow[string]): string {
+  return String(value ?? "").trim();
+}
 
 // POST: استيراد ملف Excel وتحويله إلى رحلات
 export async function POST(request: NextRequest) {
   try {
     // التحقق من المصادقة والصلاحيات
-    const user = await getCurrentUser();
-    if (!user || !["ADMIN", "MANAGER"].includes(user.role)) {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
-    }
+    const auth = await requireApiRole(ADMIN_ROLES);
+    if (auth.response) return auth.response;
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -19,14 +87,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "الملف مطلوب" }, { status: 400 });
     }
 
+    if (file.size > MAX_IMPORT_BYTES) {
+      return NextResponse.json(
+        { error: "حجم الملف يتجاوز الحد المسموح 5MB" },
+        { status: 400 }
+      );
+    }
+
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith(".xlsx") && !fileName.endsWith(".csv")) {
+      return NextResponse.json(
+        { error: "الصيغ المدعومة حالياً: .xlsx و .csv" },
+        { status: 400 }
+      );
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // قراءة ملف Excel
-    const workbook = XLSX.read(buffer, { type: "buffer" });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const data: any[] = XLSX.utils.sheet_to_json(worksheet);
+    const rows = fileName.endsWith(".csv")
+      ? parseCsvRows(buffer.toString("utf8"))
+      : await readSheet(buffer);
+    const data = rowsToObjects(rows);
 
     if (data.length === 0) {
       return NextResponse.json({ error: "الملف فارغ" }, { status: 400 });
@@ -69,7 +151,8 @@ export async function POST(request: NextRequest) {
     for (const row of data) {
       try {
         // جلب أو إنشاء الجامعة (مع كاش)
-        const uniName = row["الجامعة"] || row["اسم الجامعة"];
+        const uniName = cellText(row["الجامعة"] || row["اسم الجامعة"]);
+        if (!uniName) throw new Error("اسم الجامعة مطلوب");
         let university = uniCache.get(uniName);
         if (!university) {
           university = await prisma.university.findFirst({ where: { name: uniName } })
@@ -78,7 +161,8 @@ export async function POST(request: NextRequest) {
         }
 
         // جلب أو إنشاء السائق (مع كاش)
-        const drvName = row["السائق"] || row["اسم السائق"];
+        const drvName = cellText(row["السائق"] || row["اسم السائق"]);
+        if (!drvName) throw new Error("اسم السائق مطلوب");
         let driver = driverCache.get(drvName);
         if (!driver) {
           driver = await prisma.driver.findFirst({ where: { name: drvName } })
@@ -87,7 +171,8 @@ export async function POST(request: NextRequest) {
         }
 
         // جلب أو إنشاء الباص (مع كاش)
-        const busNum = String(row["الباص"] || row["رقم الباص"]);
+        const busNum = cellText(row["الباص"] || row["رقم الباص"]);
+        if (!busNum) throw new Error("رقم الباص مطلوب");
         let bus = busCache.get(busNum);
         if (!bus) {
           bus = await prisma.bus.findFirst({ where: { busNumber: busNum } })
@@ -96,9 +181,9 @@ export async function POST(request: NextRequest) {
         }
 
         // جلب أو إنشاء المندوب (مع كاش)
-        const repName = row["المندوب"] || row["اسم المندوب"];
-        let representative = repCache.get(repName);
-        if (!representative) {
+        const repName = cellText(row["المندوب"] || row["اسم المندوب"]);
+        let representative = repName ? repCache.get(repName) : null;
+        if (repName && !representative) {
           representative = await prisma.representative.findFirst({ where: { name: repName } })
             ?? await prisma.representative.create({ data: { name: repName } });
           repCache.set(repName, representative);
@@ -110,9 +195,9 @@ export async function POST(request: NextRequest) {
             universityId: university.id,
             driverId: driver.id,
             busId: bus.id,
-            representativeId: representative.id,
-            totalGoTrips: parseInt(row["عدد رحلات الذهاب"]) || 0,
-            totalReturnTrips: parseInt(row["عدد رحلات العودة"]) || 0,
+            representativeId: representative?.id,
+            totalGoTrips: parseInt(cellText(row["عدد رحلات الذهاب"]), 10) || 0,
+            totalReturnTrips: parseInt(cellText(row["عدد رحلات العودة"]), 10) || 0,
           },
         });
         results.routesCreated++;
@@ -132,7 +217,7 @@ export async function POST(request: NextRequest) {
                   tripDate: today,
                   direction: "GO",
                   tripTime: time,
-                  studentsCount: parseInt(cellValue) || 0,
+                  studentsCount: parseInt(cellText(cellValue), 10) || 0,
                   status: "PENDING",
                 },
               });
@@ -158,7 +243,7 @@ export async function POST(request: NextRequest) {
                   tripDate: today,
                   direction: "RETURN",
                   tripTime: time,
-                  studentsCount: parseInt(cellValue) || 0,
+                  studentsCount: parseInt(cellText(cellValue), 10) || 0,
                   status: "PENDING",
                 },
               });

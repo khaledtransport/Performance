@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createRouteSchema, validateRequest } from "@/lib/validations/route";
 import { apiCache } from "@/lib/cache";
+import { requireApiRole } from "@/lib/api-auth";
+import { ADMIN_ROLES, VIEW_ROLES } from "@/lib/rbac";
 
 const CACHE_TTL = 300000; // 5 دقائق
 
 // GET: جلب جميع الرحلات الأساسية مع البيانات المرتبطة
 export async function GET() {
   try {
+    const auth = await requireApiRole(VIEW_ROLES);
+    if (auth.response) return auth.response;
+
     // محاولة جلب من الكاش أولاً
     const cacheKey = "routes:all";
     const cached = apiCache.get(cacheKey);
@@ -74,6 +79,9 @@ export async function GET() {
 // POST: إضافة رحلة أساسية جديدة
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireApiRole(ADMIN_ROLES);
+    if (auth.response) return auth.response;
+
     const validator = validateRequest(createRouteSchema);
     const { data: body, error: validationError } = await validator(request);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { TripForm } from "@/components/delegate/trip-form";
 import { TodayTrips } from "@/components/delegate/today-trips";
@@ -27,22 +27,18 @@ export default function DelegateClient({
     const [success, setSuccess] = useState(false);
     const { toast } = useToast();
 
-    // Fetch trips automatically when component mounts
-    useEffect(() => {
-        fetchTodayTrips();
-    }, []);
-
-
-    // We still need this to refresh trips after submission
+    // البيانات الأولية تصل من Server Component؛ نعيد الجلب بعد التعديل فقط.
     const fetchTodayTrips = async () => {
         try {
             setTripsLoading(true);
             const today = new Date().toISOString().split("T")[0];
             const res = await fetch(`/Performance/api/trips?date=${today}`);
+            if (!res.ok) throw new Error(`فشل تحديث الرحلات: ${res.status}`);
             const data = await res.json();
             setTrips(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Error fetching trips:", error);
+            toast({ title: "تعذر التحديث", description: "لم يتم تحميل رحلات اليوم. حاول مرة أخرى.", variant: "destructive" });
         } finally {
             setTripsLoading(false);
         }
@@ -110,16 +106,16 @@ export default function DelegateClient({
 
     return (
         <div
-            className="min-h-screen bg-slate-50"
+            className="min-h-screen bg-slate-50 dark:bg-slate-950"
             dir="rtl"
             suppressHydrationWarning
         >
             <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
                 {/* Success Message */}
                 {success && (
-                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                        <CheckCircle2 className="w-6 h-6 text-green-600" />
-                        <p className="text-green-700 font-medium">تم تسجيل الرحلة بنجاح!</p>
+                    <div className="mb-6 p-4 bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+                        <p className="text-green-700 dark:text-green-300 font-medium">تم تسجيل الرحلة بنجاح!</p>
                     </div>
                 )}
 

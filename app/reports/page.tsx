@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -89,26 +89,32 @@ const STATUS_COLORS: Record<string, string> = {
 export default function ReportsPage() {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const requestInFlight = useRef(false);
   const [dateRange, setDateRange] = useState({
     from: new Date(new Date().setDate(1)).toISOString().split("T")[0],
     to: new Date().toISOString().split("T")[0],
   });
 
   const fetchStatistics = useCallback(async (silent = false) => {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     if (!silent) setLoading(true);
+    setError("");
     try {
       const res = await fetch(
         `/Performance/api/statistics?from=${dateRange.from}&to=${dateRange.to}`
       );
-      if (res.ok) {
-        const data = await res.json();
-        setStatistics(data);
-        setLastUpdated(new Date());
-      }
+      if (!res.ok) throw new Error("فشل جلب التقارير");
+      const data = await res.json();
+      setStatistics(data);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("Failed to fetch statistics:", error);
+      if (!silent) setError("تعذر تحميل التقارير. تحقق من الاتصال ثم أعد المحاولة.");
     } finally {
+      requestInFlight.current = false;
       if (!silent) setLoading(false);
     }
   }, [dateRange.from, dateRange.to]);
@@ -189,6 +195,20 @@ export default function ReportsPage() {
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-slate-500">جاري تحميل التقارير...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (error && !statistics) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="max-w-md w-full text-center">
+          <CardContent className="pt-8 pb-8 space-y-4">
+            <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto" />
+            <p className="text-slate-600 dark:text-slate-300">{error}</p>
+            <Button onClick={() => fetchStatistics(false)}>إعادة المحاولة</Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

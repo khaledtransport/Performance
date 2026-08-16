@@ -51,27 +51,27 @@ function getLocalDateString(date: Date): string {
 const statusConfig = {
   PENDING: {
     label: "قيد الانتظار",
-    color: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    color: "bg-yellow-50 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
     icon: Clock,
   },
   DEPARTED: {
     label: "غادر",
-    color: "bg-blue-50 text-blue-700 border-blue-200",
+    color: "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
     icon: Zap,
   },
   ARRIVED: {
     label: "وصل",
-    color: "bg-green-50 text-green-700 border-green-200",
+    color: "bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
     icon: CheckCircle2,
   },
   DELAYED: {
     label: "متأخر",
-    color: "bg-orange-50 text-orange-700 border-orange-200",
+    color: "bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
     icon: AlertCircle,
   },
   CANCELLED: {
     label: "ملغي",
-    color: "bg-red-50 text-red-700 border-red-200",
+    color: "bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
     icon: AlertCircle,
   },
 };
@@ -112,7 +112,7 @@ export default function CalendarDashboard() {
     return { startDate: first.toISOString(), endDate: last.toISOString() };
   }, [activeDate, view]);
 
-  const { dailySummary, isLoading, isValidating, refresh, trips } =
+  const { dailySummary, isLoading, isValidating, isError, refresh, trips } =
     useTripsRange({
       startDate,
       endDate,
@@ -184,53 +184,53 @@ export default function CalendarDashboard() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8" dir="rtl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8" dir="rtl">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* إحصائيات سريعة */}
           <div className="lg:col-span-1 space-y-4">
-            <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all duration-300">
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-300">
               <CardHeader className="pb-3">
-                <CardTitle className="text-slate-900 text-lg flex items-center gap-2">
+                <CardTitle className="text-slate-900 dark:text-slate-100 text-lg flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-blue-600" />
                   إحصائيات اليوم
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center p-2 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                    <span className="text-slate-600">إجمالي الرحلات</span>
-                    <span className="text-2xl font-bold text-slate-900">
+                  <div className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <span className="text-slate-600 dark:text-slate-300">إجمالي الرحلات</span>
+                    <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                       {stats.total}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-                    <span className="text-green-700">وصلت</span>
-                    <span className="text-xl font-bold text-green-700">
+                  <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-950/50 rounded-lg hover:bg-green-100 dark:hover:bg-green-950 transition-colors">
+                    <span className="text-green-700 dark:text-green-300">وصلت</span>
+                    <span className="text-xl font-bold text-green-700 dark:text-green-300">
                       {stats.arrived}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                    <span className="text-blue-700">غادرت</span>
-                    <span className="text-xl font-bold text-blue-700">
+                  <div className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-950/50 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950 transition-colors">
+                    <span className="text-blue-700 dark:text-blue-300">غادرت</span>
+                    <span className="text-xl font-bold text-blue-700 dark:text-blue-300">
                       {stats.departed}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
-                    <span className="text-yellow-700">قيد الانتظار</span>
-                    <span className="text-xl font-bold text-yellow-700">
+                  <div className="flex justify-between items-center p-2 bg-yellow-50 dark:bg-yellow-950/50 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-950 transition-colors">
+                    <span className="text-yellow-700 dark:text-yellow-300">قيد الانتظار</span>
+                    <span className="text-xl font-bold text-yellow-700 dark:text-yellow-300">
                       {stats.pending}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors">
-                    <span className="text-orange-700">متأخرة</span>
-                    <span className="text-xl font-bold text-orange-700">
+                  <div className="flex justify-between items-center p-2 bg-orange-50 dark:bg-orange-950/50 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-950 transition-colors">
+                    <span className="text-orange-700 dark:text-orange-300">متأخرة</span>
+                    <span className="text-xl font-bold text-orange-700 dark:text-orange-300">
                       {stats.delayed}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
-                    <span className="text-purple-700">الطلاب</span>
-                    <span className="text-xl font-bold text-purple-700">
+                  <div className="flex justify-between items-center p-2 bg-purple-50 dark:bg-purple-950/50 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950 transition-colors">
+                    <span className="text-purple-700 dark:text-purple-300">الطلاب</span>
+                    <span className="text-xl font-bold text-purple-700 dark:text-purple-300">
                       {stats.students}
                     </span>
                   </div>
@@ -239,9 +239,9 @@ export default function CalendarDashboard() {
             </Card>
 
             {/* تحكم العرض */}
-            <Card className="bg-white border-slate-200 shadow-sm">
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-slate-900 text-sm">
+                <CardTitle className="text-slate-900 dark:text-slate-100 text-sm">
                   طريقة العرض
                 </CardTitle>
               </CardHeader>
@@ -253,7 +253,7 @@ export default function CalendarDashboard() {
                     className={`w-full transition-all duration-300 ${
                       view === v
                         ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                     }`}
                   >
                     {v === "day" ? "يوم" : v === "week" ? "أسبوع" : "شهر"}
@@ -265,7 +265,7 @@ export default function CalendarDashboard() {
 
           {/* التقويم */}
           <div className="lg:col-span-2">
-            <Card className="bg-white border-slate-200 shadow-sm h-full">
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm h-full">
               <CardContent className="pt-6">
                 <style>{`
                   .react-calendar {
@@ -313,6 +313,13 @@ export default function CalendarDashboard() {
                     background: #eff6ff;
                     color: #2563eb;
                   }
+                  .dark .react-calendar { color: #e2e8f0; }
+                  .dark .react-calendar__month-view__days__day { color: #cbd5e1; }
+                  .dark .react-calendar__month-view__days__day:hover,
+                  .dark .react-calendar__navigation button:hover { background: #1e293b; }
+                  .dark .react-calendar__month-view__weekdays__weekday { color: #94a3b8; }
+                  .dark .react-calendar__navigation button { color: #e2e8f0; }
+                  .dark .react-calendar__tile--now { background: #172554; color: #93c5fd; }
                 `}</style>
                 <Calendar
                   value={activeDate}
@@ -334,13 +341,13 @@ export default function CalendarDashboard() {
         </div>
 
         {/* فلاتر وتفاصيل */}
-        <Card className="bg-white border-slate-200 shadow-sm mb-8">
+        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm mb-8">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-slate-900">
+              <CardTitle className="text-slate-900 dark:text-slate-100">
                 رحلات {selectedDay}
               </CardTitle>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 إجمالي الرحلات في الشهر: {trips.length} رحلة
                 {dailySummary.length > 0 && ` • ${dailySummary.length} يوم`}
               </p>
@@ -360,18 +367,18 @@ export default function CalendarDashboard() {
           </CardHeader>
           <CardContent>
             {/* فلاتر */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 pb-6 border-b border-slate-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 pb-6 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <label className="text-slate-600 text-sm mb-2 block">بحث</label>
+                <label className="text-slate-600 dark:text-slate-300 text-sm mb-2 block">بحث</label>
                 <Input
                   placeholder="ابحث عن سائق أو جامعة..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500"
+                  className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="text-slate-600 text-sm mb-2 block">
+                <label className="text-slate-600 dark:text-slate-300 text-sm mb-2 block">
                   الحالة
                 </label>
                 <div className="flex gap-2 flex-wrap">
@@ -380,8 +387,8 @@ export default function CalendarDashboard() {
                     variant="ghost"
                     className={`transition-all ${
                       selectedStatus === "all"
-                        ? "bg-slate-100 text-slate-900"
-                        : "text-slate-500 hover:text-slate-900"
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                     }`}
                   >
                     الكل ({stats.total})
@@ -394,7 +401,7 @@ export default function CalendarDashboard() {
                       className={`transition-all text-xs ${
                         selectedStatus === key
                           ? `${cfg.color} font-semibold`
-                          : "text-slate-500 hover:text-slate-900"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                       }`}
                     >
                       {cfg.label}
@@ -415,13 +422,19 @@ export default function CalendarDashboard() {
                 </div>
               )}
 
-              {isLoading ? (
+              {isError ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+                  <p className="text-slate-700 dark:text-slate-200 font-medium">تعذر تحميل رحلات التقويم</p>
+                  <Button variant="outline" className="mt-4" onClick={() => refresh()}>إعادة المحاولة</Button>
+                </div>
+              ) : isLoading ? (
                 <div className="text-center py-12">
                   <div className="relative inline-flex">
                     <div className="w-16 h-16 bg-blue-100 rounded-full animate-pulse"></div>
                     <div className="absolute top-0 left-0 w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                   </div>
-                  <p className="text-slate-600 mt-4 font-medium">
+                  <p className="text-slate-600 dark:text-slate-300 mt-4 font-medium">
                     جاري تحميل الرحلات...
                   </p>
                   <p className="text-slate-400 text-sm mt-1">
@@ -446,11 +459,11 @@ export default function CalendarDashboard() {
               ) : filteredTrips.length === 0 ? (
                 <div className="text-center py-12">
                   <AlertCircle className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                  <p className="text-slate-500 font-medium">
+                  <p className="text-slate-500 dark:text-slate-400 font-medium">
                     لا توجد رحلات في هذا اليوم
                   </p>
                   {dailySummary.length > 0 && (
-                    <div className="mt-4 p-4 bg-blue-50 rounded-lg max-w-md mx-auto">
+                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/50 rounded-lg max-w-md mx-auto">
                       <p className="text-blue-700 text-sm font-medium mb-2">
                         💡 الأيام التي تحتوي على رحلات:
                       </p>
@@ -528,7 +541,7 @@ export default function CalendarDashboard() {
         </Card>
 
         {/* Footer */}
-        <div className="text-center text-slate-400 text-sm">
+        <div className="text-center text-slate-400 dark:text-slate-500 text-sm">
           <p>نظام إدارة النقل الجامعي - تحديث تلقائي</p>
         </div>
       </div>
